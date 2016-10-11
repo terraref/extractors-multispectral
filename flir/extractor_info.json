@@ -1,0 +1,13 @@
+{
+  "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
+  "name": "terra.flirExtractor",
+  "version": "1.0",
+  "description": "flir Extractor",
+  "author": "Zongyang Li",
+  "contributors": [],
+  "contexts": [],
+  "repository": {"repType": "git", "repUrl": ""},
+  "external_services": [],
+  "dependencies": [],
+  "bibtex": []
+}
