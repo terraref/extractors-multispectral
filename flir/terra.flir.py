@@ -40,31 +40,27 @@ def main():
 def check_message(parameters):
     # Check for a left and right file before beginning processing
     found_ir = False
-    found_json = False
+    found_md = False
     for f in parameters['filelist']:
         if 'filename' in f and f['filename'].endswith('_ir.bin'):
             found_ir = True
         elif 'filename' in f and f['filename'].endswith('_metadata.json'):
-            found_json = True
+            found_md = True
 
-    if not (found_ir and found_json):
-        return False
+    # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
+    if not found_md:
+        md = extractors.download_dataset_metadata_jsonld(parameters['host'], parameters['secretKey'], parameters['datasetId'], extractorName)
+        if len(md) > 0:
+            for m in md:
+                # Check if this extractor has already been processed
+                if 'agent' in m and 'name' in m['agent']:
+                    if m['agent']['name'].find(extractorName) > -1:
+                        print("skipping dataset %s, already processed" % parameters['datasetId'])
+                        return False
+                if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
+                    found_md = True
 
-    # TODO: re-enable once this is merged into Clowder: https://opensource.ncsa.illinois.edu/bitbucket/projects/CATS/repos/clowder/pull-requests/883/overview
-    # fetch metadata from dataset to check if we should remove existing entry for this extractor first
-    md = extractors.download_dataset_metadata_jsonld(parameters['host'], parameters['secretKey'], parameters['datasetId'], extractorName)
-    found_meta = False
-    for m in md:
-        if 'agent' in m and 'name' in m['agent']:
-            if m['agent']['name'].find(extractorName) > -1:
-                print("skipping dataset %s, already processed" % parameters['datasetId'])
-                return False
-                #extractors.remove_dataset_metadata_jsonld(parameters['host'], parameters['secretKey'], parameters['datasetId'], extractorName)
-        # Check for required metadata before beginning processing
-        if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
-            found_meta = True
-
-    if found_ir and found_json:
+    if found_ir and found_md:
         return True
     else:
         return False
