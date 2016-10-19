@@ -360,14 +360,16 @@ def parse_metadata(metadata):
         else:
             cam_z = 0
 
+        position = [float(gantry_x), float(gantry_y), float(gantry_z)]
+        center_position = [position[0]+float(cam_x), position[1]+float(cam_y), position[2]+float(cam_z)]
+        fov = [float(fov_x), float(fov_y)]
+
+        return center_position, scan_time, fov
+
     except KeyError as err:
         fail('Metadata file missing key: ' + err.args[0])
-        
-    position = [float(gantry_x), float(gantry_y), float(gantry_z)]
-    center_position = [position[0]+float(cam_x), position[1]+float(cam_y), position[2]+float(cam_z)]
-    fov = [float(fov_x), float(fov_y)]
-    
-    return center_position, scan_time, fov
+        return None, None, None
+
     
 def lower_keys(in_dict):
     if type(in_dict) is dict:

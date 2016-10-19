@@ -112,22 +112,24 @@ def process_dataset(parameters):
     print("...png: %s" % (png_path))
     print("...tif: %s" % (tiff_path))
 
-    print("getting information from json file")
-    center_position, scan_time, fov = getFlir.parse_metadata(metadata) 
-    gps_bounds = getFlir.get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
-    
     print("Creating png image")
     raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
     im_color = getFlir.create_png(raw_data, png_path) # create png
     print("Uploading output PNGs to dataset")
     extractors.upload_file_to_dataset(png_path, parameters)
+
+    print("getting information from json file for geoTIFF")
+    center_position, scan_time, fov = getFlir.parse_metadata(metadata)
+    if center_position is None or scan_time is None or fov is None:
+        print("error getting metadata; skipping geoTIFF")
+    else:
+        gps_bounds = getFlir.get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
     
-    print("Creating geoTIFF images")
-    tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
-    getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, tiff_path) # create geotiff
-    print("Uploading output geoTIFFs to dataset")
-    extractors.upload_file_to_dataset(tiff_path, parameters)
-    
+        print("Creating geoTIFF images")
+        tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
+        getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, tiff_path) # create geotiff
+        print("Uploading output geoTIFFs to dataset")
+        extractors.upload_file_to_dataset(tiff_path, parameters)
 
     # Tell Clowder this is completed so subsequent file updates don't daisy-chain
     metadata = {
