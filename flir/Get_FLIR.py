@@ -96,13 +96,8 @@ def get_flir(in_dir, out_dir):
             os.mkdir(out_dir)
         except:
             fail('Failed to create directory in ' + out_dir)
-    
-    metadata = lower_keys(load_json(metafile)) # load json file
-    
-    center_position, scan_time, fov = parse_metadata(metadata) # get information from json file
-    
-    gps_bounds = get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
-    
+
+
     raw_data = load_flir_data(binfile) # get raw data from bin file
     
     filename = os.path.basename(binfile)
@@ -110,12 +105,22 @@ def get_flir(in_dir, out_dir):
     out_png = temp_name[:-3] + 'png'
     
     im_color = create_png(raw_data, out_png) # create png
-    
-    tc = rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
-    
-    tif_path = temp_name[:-3] + 'tif'
-    
-    create_geotiff_with_temperature(im_color, tc, gps_bounds, tif_path) # create geotiff
+
+
+    metadata = lower_keys(load_json(metafile)) # load json file
+
+    center_position, scan_time, fov = parse_metadata(metadata) # get information from json file
+
+    if center_position is None or scan_time is None or fov is None:
+        print("error getting metadata; skipping geoTIFF")
+    else:
+        gps_bounds = get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
+
+        tc = rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
+
+        tif_path = temp_name[:-3] + 'tif'
+
+        create_geotiff_with_temperature(im_color, tc, gps_bounds, tif_path) # create geotiff
     
     return
 
