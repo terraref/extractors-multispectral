@@ -28,7 +28,7 @@ messageType = "*.dataset.file.added"
 sslVerify = os.getenv('RABBITMQ_SSLVERIFY', False)
 
 # Comma delimited list of endpoints and keys for registering extractor information
-registrationEndpoints = os.getenv('REGISTRATION_ENDPOINTS', "http://localhost:9000/clowder/api/extractors?key=r1ek3rs")
+registrationEndpoints = os.getenv('REGISTRATION_ENDPOINTS', "")
 
 # Path to script that contains modules to import
 getFlirScript = "Get_FLIR.py"
@@ -36,4 +36,4 @@ getFlirScript = "Get_FLIR.py"
 # Dictionary that maps {"remote Clowder source path": "local mounted path"} for streamlining Clowder downloads
 mountedPaths = {"/home/clowder/sites": "/home/extractor/sites"}
 
-outputDir = '/Users/clowder/flir'
+outputDir = '/home/extractor/sites/ua-mac/Level_1/flirIrCamera'
