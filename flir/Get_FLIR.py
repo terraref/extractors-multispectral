@@ -15,7 +15,7 @@ from osgeo import gdal, osr
 from numpy.matlib import repmat
 from datetime import date
 
-ZERO_ZERO = (33.0745,-111.97475)
+ZERO_ZERO = (33.07451869,-111.97477775)
 
 mode_date = date(2016, 9, 15)
 
@@ -335,13 +335,13 @@ def get_bounding_box(center_position, fov):
         lng_min_offset = x_min/(r * cos(pi * ZERO_ZERO[0]/180)) * 180/pi
         lng_max_offset = x_max/(r * cos(pi * ZERO_ZERO[0]/180)) * 180/pi
 
-        lat_min = ZERO_ZERO[0] - lat_min_offset
-        lat_max = ZERO_ZERO[0] - lat_max_offset
+        lat_min = ZERO_ZERO[0] + lat_min_offset
+        lat_max = ZERO_ZERO[0] + lat_max_offset
         lng_min = ZERO_ZERO[1] - lng_min_offset
         lng_max = ZERO_ZERO[1] - lng_max_offset
     except Exception as ex:
         fail('Failed to get GPS bounds from center + FOV: ' + str(ex))
-    return (lat_max, lat_min, lng_max, lng_min)
+    return (lat_min, lat_max, lng_max, lng_min)
 
 def parse_metadata(metadata):
     
