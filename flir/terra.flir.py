@@ -7,6 +7,8 @@ Created on Oct 6, 2016
 import os
 import logging
 import imp
+import tempfile
+import shutil
 
 from config import *
 import pyclowder.extractors as extractors
@@ -126,8 +128,12 @@ def process_dataset(parameters):
         gps_bounds = getFlir.get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
     
         print("Creating geoTIFF images")
+        # Rename temporary tif after creation to avoid long path errors
+        out_tmp_tiff = tempfile.mkstemp()
         tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
-        getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, tiff_path) # create geotiff
+        getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, out_tmp_tiff[1]) # create geotiff
+        shutil.copyfile(out_tmp_tiff[1], tiff_path)
+        os.remove(out_tmp_tiff[1])
         print("Uploading output geoTIFFs to dataset")
         extractors.upload_file_to_dataset(tiff_path, parameters)
 
