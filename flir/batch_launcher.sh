@@ -6,7 +6,7 @@ module purge
 module load python/2.7.10 pythonlibs/2.7.10 gdal-stack-2.7.10 gdal netcdf
 
 # Activate python virtualenv
-source /home/mburnet2/extractors/pyenv/bin/activate
+source /projects/arpae/terraref/shared/extractors/pyenv/bin/activate
 
 # Run extractor script
-python /home/mburnet2/extractors/extractors-multispectral/flir/terra.flir.py
+python /projects/arpae/terraref/shared/extractors/extractors-multispectral/flir/terra.flir.py
