@@ -1,12 +1,17 @@
 {
   "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
-  "name": "terra.flirExtractor",
-  "version": "1.0",
-  "description": "flir Extractor",
+  "name": "terra.flir",
+  "version": "2.0",
+  "description": "FlirIR BIN Converter",
   "author": "Zongyang Li",
   "contributors": [],
   "contexts": [],
-  "repository": {"repType": "git", "repUrl": ""},
+  "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-multispectral"},
+  "process": {
+    "dataset": [
+      "file.added"
+    ]
+  },
   "external_services": [],
   "dependencies": [],
   "bibtex": []

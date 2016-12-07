@@ -8,12 +8,12 @@ RUN useradd -u 47852 extractor \
                              libpng-dev libjpeg8-dev libfreetype6-dev \
     && usr/bin/yes | apt-get build-dep python-matplotlib \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install pika requests urllib3 numpy pillow matplotlib \
+    && pip install pika requests urllib3 numpy pillow matplotlib enum pyyaml \
     && mkdir /home/extractor \
     && chown -R extractor /home/extractor \
     && cd /home/extractor \
-    && git clone https://opensource.ncsa.illinois.edu/bitbucket/scm/cats/pyclowder.git \
-    && cd pyclowder \
+    && git clone https://opensource.ncsa.illinois.edu/bitbucket/scm/cats/pyclowder2.git \
+    && cd pyclowder2 \
     && python setup.py install
 
 # command to run when starting docker
