@@ -30,4 +30,4 @@ CMD ["extractor"]
 ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
     RABBITMQ_QUEUE="terra.flir.converter" \
-    MAIN_SCRIPT="terra.flir.py"
+    MAIN_SCRIPT="terra_flir.py"
