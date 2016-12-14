@@ -140,9 +140,8 @@ class FlirBin2JpgTiff(Extractor):
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = {
-            "@context": {
-                "@vocab": "https://clowder.ncsa.illinois.edu/clowder/assets/docs/api/index.html#!/files/uploadToDataset"
-            },
+            # TODO: Generate JSON-LD context for additional fields
+            "@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
             "dataset_id": resource['id'],
             "content": {"status": "COMPLETED"},
             "agent": {
