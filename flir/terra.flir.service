@@ -1,0 +1,13 @@
+[Unit]
+Description=FlirIr BIN Extractor
+After=network.target
+
+[Service]
+User=extractor
+Group=users
+Restart=on-failure
+WorkingDirectory=/home/extractor/extractors-multispectral/flir
+ExecStart=/usr/bin/python /home/extractor/extractors-multispectral/flir/terra_flir.py
+
+[Install]
+WantedBy=multi-user.target
