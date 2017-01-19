@@ -1,0 +1,18 @@
+{
+  "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
+  "name": "terra.psii",
+  "version": "2.0",
+  "description": "PSII Analysis",
+  "author": "Zongyang Li",
+  "contributors": [],
+  "contexts": [],
+  "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-multispectral"},
+  "process": {
+    "dataset": [
+      "file.added"
+    ]
+  },
+  "external_services": [],
+  "dependencies": [],
+  "bibtex": []
+}
