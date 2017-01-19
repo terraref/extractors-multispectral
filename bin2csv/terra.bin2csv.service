@@ -1,0 +1,13 @@
+[Unit]
+Description=NDVI PRI BinValues2Csv Extractor
+After=network.target
+
+[Service]
+User=extractor
+Group=users
+Restart=on-failure
+WorkingDirectory=/home/extractor/extractors-multispectral/bin2csv
+ExecStart=/usr/bin/python /home/extractor/extractors-multispectral/bin2csv/terra_bin2csv.py
+
+[Install]
+WantedBy=multi-user.target
