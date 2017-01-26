@@ -1,0 +1,13 @@
+[Unit]
+Description=PSII BIN to PNG Converter
+After=network.target
+
+[Service]
+User=extractor
+Group=users
+Restart=on-failure
+WorkingDirectory=/home/extractor/extractors-multispectral/psii
+ExecStart=/usr/bin/python /home/extractor/extractors-multispectral/psii/terra_psii.py
+
+[Install]
+WantedBy=multi-user.target
