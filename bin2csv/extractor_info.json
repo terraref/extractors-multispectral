@@ -1,0 +1,18 @@
+{
+  "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
+  "name": "terra.bin2csv",
+  "version": "1.0",
+  "description": "NDVI PRI BinValues2Csv Extractor",
+  "author": "pahedings@slu.edu",
+  "contributors": [],
+  "contexts": [],
+  "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-multispectral"},
+  "process": {
+    "file": [
+      "application/macbinary"
+    ]
+  },
+  "external_services": [],
+  "dependencies": [],
+  "bibtex": []
+}

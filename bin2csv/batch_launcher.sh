@@ -3,10 +3,10 @@
 
 # Load necessary modules
 module purge
-module load python/2.7.10 pythonlibs/2.7.10
+module load python/2.7.10 pythonlibs/2.7.10 gdal-stack-2.7.10 gdal netcdf
 
 # Activate python virtualenv
 source /projects/arpae/terraref/shared/extractors/pyenv/bin/activate
 
 # Run extractor script
-python /projects/arpae/terraref/shared/extractors/extractors-multispectral/bin2csv/terra_bin2csv.py
+python /projects/arpae/terraref/shared/extractors/extractors-multispectral/flir/terra_flir.py
