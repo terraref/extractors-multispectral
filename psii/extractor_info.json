@@ -1,8 +1,8 @@
 {
   "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
   "name": "terra.psii",
-  "version": "2.0",
-  "description": "PSII Analysis",
+  "version": "1.0",
+  "description": "PSII BIN to PNG Converter",
   "author": "Zongyang Li",
   "contributors": [],
   "contexts": [],
