@@ -50,7 +50,7 @@ class PSIIBin2Png(Extractor):
             for f in resource['files']:
                 if 'filename' in f and f['filename'].endswith(file_ends):
                     ind_add += ind_add
-                    if os.path.exists(os.path.join(out_dir, f['filename'][:-4]+'.png')):
+                    if os.path.exists(os.path.join(out_dir, f['filename'][:-4]+'.png')) and not self.force_overwrite:
                         ind_output += 1
                     break
 
@@ -118,7 +118,7 @@ class PSIIBin2Png(Extractor):
         for ind in range(0, 101):
             binbase = os.path.basename(frames[ind])[:-4]
             png_path = os.path.join(out_dir, binbase+'.png')
-            if not os.path.exists(png_path):
+            if not os.path.exists(png_path) or self.force_overwrite:
                 psiiCore.load_PSII_data(frames[ind], img_height, img_width, png_path)
                 logging.info("......uploading %s" % png_path)
                 pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
