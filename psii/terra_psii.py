@@ -5,13 +5,12 @@ Created on Jan 12, 2017
 '''
 import os
 import logging
-import shutil
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.datasets
 
-import terra_PSII_analysis as psiiCore
+import PSII_analysis as psiiCore
 
 
 class PSIIBin2Png(Extractor):
@@ -53,8 +52,10 @@ class PSIIBin2Png(Extractor):
                     if os.path.exists(os.path.join(out_dir, f['filename'][:-4]+'.png')) and not self.force_overwrite:
                         ind_output += 1
                     break
+        hist_path = os.path.join(out_dir, 'combined_hist.png')
+        coloredImg_path = os.path.join(out_dir, 'combined_pseudocolored.png')
 
-        if ind_output == 102:
+        if ind_output == 102 and os.path.exists(hist_path) and os.path.exists(coloredImg_path):
             logging.info("skipping dataset %s, outputs already exist" % resource['id'])
             return CheckMessage.ignore
         if ind_add < 102:
@@ -114,14 +115,23 @@ class PSIIBin2Png(Extractor):
 
         img_width = 1936
         img_height = 1216
+        png_frames = {}
         # skip 0101.bin since 101 is an XML file that lists the frame times
         for ind in range(0, 101):
             binbase = os.path.basename(frames[ind])[:-4]
             png_path = os.path.join(out_dir, binbase+'.png')
+            png_frames[ind] = png_path
             if not os.path.exists(png_path) or self.force_overwrite:
                 psiiCore.load_PSII_data(frames[ind], img_height, img_width, png_path)
                 logging.info("......uploading %s" % png_path)
                 pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+
+        # Generate aggregate outputs
+        hist_path = os.path.join(out_dir, 'combined_hist.png')
+        coloredImg_path = os.path.join(out_dir, 'combined_pseudocolored.png')
+        psiiCore.psii_analysis(png_frames, hist_path, coloredImg_path)
+        pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], hist_path)
+        pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], coloredImg_path)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = {
