@@ -60,7 +60,7 @@ class FlirBin2JpgTiff(Extractor):
             binbase = os.path.basename(found_ir)[:-7]
             png_path = os.path.join(out_dir, binbase+'.png')
             tiff_path = os.path.join(out_dir, binbase+'.tif')
-            if os.path.exists(png_path) and os.path.exists(tiff_path):
+            if os.path.exists(png_path) and os.path.exists(tiff_path) and not self.force_overwrite:
                 logging.info("skipping dataset %s, outputs already exist" % resource['id'])
                 return CheckMessage.ignore
 
@@ -116,13 +116,13 @@ class FlirBin2JpgTiff(Extractor):
         tiff_path = os.path.join(out_dir, binbase+'.tif')
 
         logging.info("...creating PNG image")
-        if not os.path.exists(png_path):
+        if not os.path.exists(png_path) or self.force_overwrite:
             raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
             im_color = getFlir.create_png(raw_data, png_path) # create png
             logging.info("...uploading output PNG to dataset")
             pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
 
-        if not os.path.exists(tiff_path):
+        if not os.path.exists(tiff_path) or self.force_overwrite:
             logging.info("...getting information from json file for geoTIFF")
             center_position, scan_time, fov = getFlir.parse_metadata(metadata)
             if center_position is None or scan_time is None or fov is None:

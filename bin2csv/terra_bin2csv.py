@@ -2,9 +2,9 @@
 """
 Extract NDVI or PRI from .bin file and Save to .csv file.
 """
+
 import os
 import csv
-import tempfile
 import numpy as np
 
 from pyclowder.extractors import Extractor
@@ -46,7 +46,7 @@ class BinValues2Csv(Extractor):
             # Check if output already exists
             ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
             outPath = self.determineOutputDir(ds_info['name'])
-            if os.path.isfile(outPath):
+            if os.path.isfile(outPath) and not self.force_overwrite:
                 logging.info("skipping %s, outputs already exist" % resource['id'])
                 return CheckMessage.ignore
 
@@ -61,7 +61,7 @@ class BinValues2Csv(Extractor):
         inPath = resource['local_paths'][0]
 
         # Extract NDVI values
-        if not os.path.isfile(outPath):
+        if not os.path.isfile(outPath) or self.force_overwrite:
             logging.info("...writing values to: %s" % outPath)
             data = open(inPath, "rb").read()
             values = float(data[49:66])
