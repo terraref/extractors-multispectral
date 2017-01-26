@@ -2,6 +2,7 @@
 """
 Extract NDVI or PRI from .bin file and Save to .csv file.
 """
+import os
 import csv
 import tempfile
 import numpy as np
@@ -37,10 +38,18 @@ class BinValues2Csv(Extractor):
         self.force_overwrite = self.args.force_overwrite
 
     def check_message(self, connector, host, secret_key, resource, parameters):
+        # First, check if we have the correct sensor type
         md = pyclowder.datasets.download_metadata(connector, host, secret_key,
                                                   resource['parent']['id'])
         sensortype = self.determineSensorType(md)
         if sensortype in ["ndvi", "pri"]:
+            # Check if output already exists
+            ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
+            outPath = self.determineOutputDir(ds_info['name'])
+            if os.path.isfile(outPath):
+                logging.info("skipping %s, outputs already exist" % resource['id'])
+                return CheckMessage.ignore
+
             return CheckMessage.download
         else:
             return CheckMessage.ignore
@@ -48,30 +57,8 @@ class BinValues2Csv(Extractor):
     def process_message(self, connector, host, secret_key, resource, parameters):
         ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
         # Determine output file path
-        ds_name = ds_info['name']
-        if ds_name.find(" - ") > -1:
-            # sensor - timestamp
-            ds_name_parts = ds_name.split(" - ")
-            sensor_name = ds_name_parts[0]
-            if ds_name_parts[1].find("__") > -1:
-                # sensor - date__time
-                ds_time_parts = ds_name_parts[1].split("__")
-                timestamp = os.path.join(ds_time_parts[0], ds_name_parts[1])
-            else:
-                timestamp = ds_name_parts[1]
-            # /sensor/date/time
-            subPath = os.path.join(sensor_name, timestamp)
-        else:
-            subPath = ds_name
-        if self.output_dir != '':
-            temp_dir = None
-            outPath = os.path.join(self.output_dir, subPath, "extracted_values.csv")
-            inPath = resource['local_paths'][0]
-        else:
-            temp_dir = tempfile.mkdtemp()
-            outPath = os.path.join(temp_dir, "extracted_values.csv")
-            inPath = os.path.basename(resource['local_paths'][0])
-            shutil.copyfile(resource['local_paths'][0], inPath)
+        outPath = self.determineOutputDir(ds_info['name'])
+        inPath = resource['local_paths'][0]
 
         # Extract NDVI values
         if not os.path.isfile(outPath):
@@ -90,7 +77,7 @@ class BinValues2Csv(Extractor):
             logging.info("%s already exists; skipping %s" % (outPath, resource['id']))
 
     # Return sensor type based on metadata parameters
-    def determineSensorType(md):
+    def determineSensorType(self, md):
         for meta in md:
             if 'lemnatec_measurement_metadata' in meta:
                 lmm = meta['lemnatec_measurement_metadata']
@@ -104,6 +91,25 @@ class BinValues2Csv(Extractor):
                         return "pri"
                     else:
                         return "unknown"
+
+    def determineOutputDir(self, ds_name):
+        if ds_name.find(" - ") > -1:
+            # sensor - timestamp
+            ds_name_parts = ds_name.split(" - ")
+            sensor_name = ds_name_parts[0]
+            if ds_name_parts[1].find("__") > -1:
+                # sensor - date__time
+                ds_time_parts = ds_name_parts[1].split("__")
+                timestamp = os.path.join(ds_time_parts[0], ds_name_parts[1])
+            else:
+                timestamp = ds_name_parts[1]
+            # /sensor/date/time
+            subPath = os.path.join(sensor_name, timestamp)
+        else:
+            subPath = ds_name
+
+        return os.path.join(self.output_dir, subPath, "extracted_values.csv")
+
 
 if __name__ == "__main__":
     extractor = BinValues2Csv()

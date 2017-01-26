@@ -45,33 +45,42 @@ class FlirBin2JpgTiff(Extractor):
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # Check for an ir.BIN file and metadata before beginning processing
-        found_ir = False
-        found_md = False
+        found_ir = None
+        found_md = None
 
         for f in resource['files']:
             if 'filename' in f and f['filename'].endswith('_ir.bin'):
-                found_ir = True
+                found_ir = f['filepath']
             elif 'filename' in f and f['filename'].endswith('_metadata.json'):
-                found_md = True
+                found_md = f['filepath']
 
-        # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
-        if not found_md:
-            md = pyclowder.datasets.download_metadata(connector, host, secret_key,
-                                                      resource['id'], self.extractor_info['name'])
-            if len(md) > 0:
-                for m in md:
-                    # Check if this extractor has already been processed
-                    if 'agent' in m and 'name' in m['agent']:
-                        if m['agent']['name'].find(self.extractor_info['name']) > -1:
-                            logging.info("skipping dataset %s, already processed" % parameters['datasetId'])
-                            return CheckMessage.ignore
-                    if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
-                        found_md = True
+        if found_ir:
+            # Check if outputs already exist
+            out_dir = self.determineOutputPath(resource['dataset_info']['name'])
+            binbase = os.path.basename(found_ir)[:-7]
+            png_path = os.path.join(out_dir, binbase+'.png')
+            tiff_path = os.path.join(out_dir, binbase+'.tif')
+            if os.path.exists(png_path) and os.path.exists(tiff_path):
+                logging.info("skipping dataset %s, outputs already exist" % resource['id'])
+                return CheckMessage.ignore
 
-        if found_ir and found_md:
-            return CheckMessage.download
-        else:
-            return CheckMessage.ignore
+            # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
+            if not found_md:
+                md = pyclowder.datasets.download_metadata(connector, host, secret_key,
+                                                          resource['id'], self.extractor_info['name'])
+                if len(md) > 0:
+                    for m in md:
+                        # Check if this extractor has already been processed
+                        if 'agent' in m and 'name' in m['agent']:
+                            if m['agent']['name'].find(self.extractor_info['name']) > -1:
+                                logging.info("skipping dataset %s, already processed" % resource['id'])
+                                return CheckMessage.ignore
+                        if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
+                            found_md = True
+            if found_md:
+                return CheckMessage.download
+
+        return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
         metafile, bin_file, metadata = None, None, None
@@ -96,16 +105,7 @@ class FlirBin2JpgTiff(Extractor):
             return
 
         # Determine output directory
-        dsname = resource['dataset_info']['name']
-        if dsname.find(" - ") > -1:
-            timestamp = dsname.split(" - ")[1]
-        else:
-            timestamp = "dsname"
-        if timestamp.find("__") > -1:
-            datestamp = timestamp.split("__")[0]
-        else:
-            datestamp = ""
-        out_dir = os.path.join(self.output_dir, datestamp, timestamp)
+        out_dir = self.determineOutputPath(resource['dataset_info']['name'])
         logging.info("...writing outputs to: %s" % out_dir)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -116,27 +116,29 @@ class FlirBin2JpgTiff(Extractor):
         tiff_path = os.path.join(out_dir, binbase+'.tif')
 
         logging.info("...creating PNG image")
-        raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
-        im_color = getFlir.create_png(raw_data, png_path) # create png
-        logging.info("...uploading output PNG to dataset")
-        pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+        if not os.path.exists(png_path):
+            raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
+            im_color = getFlir.create_png(raw_data, png_path) # create png
+            logging.info("...uploading output PNG to dataset")
+            pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
 
-        logging.info("...getting information from json file for geoTIFF")
-        center_position, scan_time, fov = getFlir.parse_metadata(metadata)
-        if center_position is None or scan_time is None or fov is None:
-            logging.error("error getting metadata; skipping geoTIFF")
-        else:
-            gps_bounds = getFlir.get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
+        if not os.path.exists(tiff_path):
+            logging.info("...getting information from json file for geoTIFF")
+            center_position, scan_time, fov = getFlir.parse_metadata(metadata)
+            if center_position is None or scan_time is None or fov is None:
+                logging.error("error getting metadata; skipping geoTIFF")
+            else:
+                gps_bounds = getFlir.get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
 
-            logging.info("...creating TIFF image")
-            # Rename temporary tif after creation to avoid long path errors
-            out_tmp_tiff = tempfile.mkstemp()
-            tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
-            getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, out_tmp_tiff[1]) # create geotiff
-            shutil.copyfile(out_tmp_tiff[1], tiff_path)
-            os.remove(out_tmp_tiff[1])
-            logging.info("...uploading output TIFF to dataset")
-            pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
+                logging.info("...creating TIFF image")
+                # Rename temporary tif after creation to avoid long path errors
+                out_tmp_tiff = tempfile.mkstemp()
+                tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
+                getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, out_tmp_tiff[1]) # create geotiff
+                shutil.copyfile(out_tmp_tiff[1], tiff_path)
+                os.remove(out_tmp_tiff[1])
+                logging.info("...uploading output TIFF to dataset")
+                pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = {
@@ -150,6 +152,18 @@ class FlirBin2JpgTiff(Extractor):
             }
         }
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
+
+    def determineOutputPath(self, dsname):
+        if dsname.find(" - ") > -1:
+            timestamp = dsname.split(" - ")[1]
+        else:
+            timestamp = "dsname"
+        if timestamp.find("__") > -1:
+            datestamp = timestamp.split("__")[0]
+        else:
+            datestamp = ""
+
+        return os.path.join(self.output_dir, datestamp, timestamp)
 
 if __name__ == "__main__":
     extractor = FlirBin2JpgTiff()
