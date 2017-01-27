@@ -1,6 +1,6 @@
 {
   "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
-  "name": "terra.flir",
+  "name": "terra.flir.converter",
   "version": "2.0",
   "description": "FlirIR BIN Converter",
   "author": "Zongyang Li",
