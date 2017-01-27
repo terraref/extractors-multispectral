@@ -5,6 +5,7 @@ Extract NDVI or PRI from .bin file and Save to .csv file.
 
 import os
 import csv
+import logging
 import numpy as np
 
 from pyclowder.extractors import Extractor
