@@ -29,5 +29,5 @@ CMD ["extractor"]
 # executed by entrypoint.sh
 ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
-    RABBITMQ_QUEUE="terra.flir.converter" \
-    MAIN_SCRIPT="terra_flir.py"
+    RABBITMQ_QUEUE="terra.multispectral.flir2tif" \
+    MAIN_SCRIPT="terra_flir2tif.py"
