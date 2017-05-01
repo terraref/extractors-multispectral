@@ -79,8 +79,7 @@ class FlirBin2JpgTiff(Extractor):
 
             # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
             if not found_md:
-                md = pyclowder.datasets.download_metadata(connector, host, secret_key,
-                                                          resource['id'], self.extractor_info['name'])
+                md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['id'])
                 if len(md) > 0:
                     for m in md:
                         # Check if this extractor has already been processed
@@ -127,22 +126,23 @@ class FlirBin2JpgTiff(Extractor):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        #Determine output paths
-        binbase = os.path.basename(bin_file)[:-7]
-        png_path = os.path.join(out_dir, binbase+'.png')
-        tiff_path = os.path.join(out_dir, binbase+'.tif')
+        uploaded_file_ids = []
 
-        logging.info("...creating PNG image")
+        png_path = os.path.join(out_dir, os.path.basename(bin_file)[:-7]+'.png')
         if not os.path.exists(png_path) or self.force_overwrite:
+            logging.info("...creating PNG image")
             raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
             im_color = getFlir.create_png(raw_data, png_path) # create png
 
             created += 1
             bytes += os.path.getsize(png_path)
 
-            logging.info("...uploading output PNG to dataset")
-            pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+            if png_path not in resource["local_paths"]:
+                fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+                uploaded_file_ids.append(fileid)
 
+
+        tiff_path = os.path.join(out_dir, os.path.basename(bin_file)[:-7]+'.tif')
         if not os.path.exists(tiff_path) or self.force_overwrite:
             logging.info("...getting information from json file for geoTIFF")
             center_position, scan_time, fov = getFlir.parse_metadata(metadata)
@@ -153,24 +153,26 @@ class FlirBin2JpgTiff(Extractor):
 
                 logging.info("...creating TIFF image")
                 # Rename temporary tif after creation to avoid long path errors
-                out_tmp_tiff = tempfile.mkstemp()
+                out_tmp_tiff = "/home/extractor/"+resource['dataset_info']['name']+".tif"
                 tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
-                getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, out_tmp_tiff[1]) # create geotiff
-                shutil.copyfile(out_tmp_tiff[1], tiff_path)
-                os.remove(out_tmp_tiff[1])
+                getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, out_tmp_tiff) # create geotiff
+                shutil.move(out_tmp_tiff, tiff_path)
 
                 created += 1
                 bytes += os.path.getsize(tiff_path)
 
-                logging.info("...uploading output TIFF to dataset")
-                pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
+                if tiff_path not in resource["local_paths"]:
+                    fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
+                    uploaded_file_ids.append(fileid)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = {
             # TODO: Generate JSON-LD context for additional fields
             "@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
             "dataset_id": resource['id'],
-            "content": {"status": "COMPLETED"},
+            "content": {
+                "files_created": uploaded_file_ids
+            },
             "agent": {
                 "@type": "cat:extractor",
                 "extractor_id": host + "/api/extractors/" + self.extractor_info['name']
