@@ -6,8 +6,8 @@ After=network.target
 User=extractor
 Group=users
 Restart=on-failure
-WorkingDirectory=/home/extractor/extractors-multispectral/psii
-ExecStart=/usr/bin/python /home/extractor/extractors-multispectral/psii/terra_psii.py
+WorkingDirectory=/home/extractor/extractors-multispectral/psii2png
+ExecStart=/usr/bin/python /home/extractor/extractors-multispectral/psii2png/terra_psii2png.py
 
 [Install]
 WantedBy=multi-user.target

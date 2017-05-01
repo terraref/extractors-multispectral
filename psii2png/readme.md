@@ -1,4 +1,4 @@
-# PSII Converter
+# PSII BIN to PNG Converter
 
 This extractor processes binary files into PNG files. 
 

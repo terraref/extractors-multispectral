@@ -1,6 +1,6 @@
 {
   "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
-  "name": "terra.psii",
+  "name": "terra.multispectral.psii2png",
   "version": "1.0",
   "description": "PSII BIN to PNG Converter",
   "author": "Zongyang Li",

@@ -1,15 +1,15 @@
 {
   "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
-  "name": "terra.flir.converter",
-  "version": "2.0",
-  "description": "FlirIR BIN Converter",
-  "author": "Zongyang Li",
+  "name": "terra.multispectral.ndvipri2csv",
+  "version": "1.0",
+  "description": "NDVI/PRI BIN to CSV Converter",
+  "author": "pahedings@slu.edu",
   "contributors": [],
   "contexts": [],
   "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-multispectral"},
   "process": {
-    "dataset": [
-      "file.added"
+    "file": [
+      "application/macbinary"
     ]
   },
   "external_services": [],

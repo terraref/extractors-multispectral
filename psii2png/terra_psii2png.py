@@ -1,10 +1,11 @@
-'''
-Created on Jan 12, 2017
+#!/usr/bin/env python
 
-@author: Zongyang
-'''
 import os
 import logging
+
+import datetime
+from dateutil.parser import parse
+from influxdb import InfluxDBClient, SeriesHelper
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
@@ -25,6 +26,16 @@ class PSIIBin2Png(Extractor):
                                  help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
+        self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
+                                 default="terra-logging.ncsa.illinois.edu", help="InfluxDB URL for logging")
+        self.parser.add_argument('--influxPort', dest="influx_port", type=int, nargs='?',
+                                 default=8086, help="InfluxDB port")
+        self.parser.add_argument('--influxUser', dest="influx_user", type=str, nargs='?',
+                                 default="terra", help="InfluxDB username")
+        self.parser.add_argument('--influxPass', dest="influx_pass", type=str, nargs='?',
+                                 default="", help="InfluxDB password")
+        self.parser.add_argument('--influxDB', dest="influx_db", type=str, nargs='?',
+                                 default="extractor_db", help="InfluxDB databast")
 
         # parse command line and load default logging configuration
         self.setup()
@@ -36,40 +47,48 @@ class PSIIBin2Png(Extractor):
         # assign other arguments
         self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
+        self.influx_host = self.args.influx_host
+        self.influx_port = self.args.influx_port
+        self.influx_user = self.args.influx_user
+        self.influx_pass = self.args.influx_pass
+        self.influx_db = self.args.influx_db
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # Check for 0000-0101 bin files before beginning processing
         if len(resource['files']) < 103:
             return CheckMessage.ignore
-        ind_add = 0
-        ind_output = 0
+
         out_dir = self.determineOutputDirectory(resource['dataset_info']['name'])
-        for ind in range(0, 102):
-            file_ends = "{0:0>4}".format(ind)+'.bin'
-            for f in resource['files']:
-                if 'filename' in f and f['filename'].endswith(file_ends):
-                    ind_add += ind_add
-                    if os.path.exists(os.path.join(out_dir, f['filename'][:-4]+'.png')) and not self.force_overwrite:
-                        ind_output += 1
-                    break
         hist_path = os.path.join(out_dir, 'combined_hist.png')
         coloredImg_path = os.path.join(out_dir, 'combined_pseudocolored.png')
 
+        # Count number of bin files in dataset, as well as number of existing outputs
+        ind_add = 0
+        ind_output = 0
+        for ind in range(0, 102):
+            for f in resource['files']:
+                if f['filename'].endswith("{0:0>4}".format(ind)+'.bin'):
+                    ind_add += 1
+                    if os.path.exists(os.path.join(out_dir, f['filename'][:-4]+'.png')) and not self.force_overwrite:
+                        ind_output += 1
+                    break
+
+        # Do the outputs already exist?
         if ind_output == 102 and os.path.exists(hist_path) and os.path.exists(coloredImg_path):
             logging.info("skipping dataset %s, outputs already exist" % resource['id'])
             return CheckMessage.ignore
+        # Do we have too few input BIN files?
         if ind_add < 102:
             return CheckMessage.ignore
 
-        md = pyclowder.datasets.download_metadata(connector, host, secret_key,
-                                                  resource['id'], self.extractor_info['name'])
+        md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['id'])
         found_md = False
         if len(md) > 0:
             for m in md:
                 # Check if this extractor has already been processed
                 if 'agent' in m and 'name' in m['agent']:
-                    if m['agent']['name'].find(self.extractor_info['name']) > -1:
-                        logging.info("skipping dataset %s, already processed" % resource['id'])
+                    if m['agent']['name'].find(self.extractor_info['name']) > -1 and not self.force_overwrite:
+                        logging.info("skipping dataset %s, found existing metadata" % resource['id'])
                         return CheckMessage.ignore
                 if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
                     found_md = True
@@ -79,9 +98,12 @@ class PSIIBin2Png(Extractor):
         return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
-        global outputDir
+        starttime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        created = 0
+        bytes = 0
 
         metafile, metadata = None, None
+        uploaded_file_ids = []
 
         # Get bin files and metadata
         for f in resource['local_paths']:
@@ -99,10 +121,9 @@ class PSIIBin2Png(Extractor):
 
         frames = {}
         for ind in range(0, 101):
-            file_ends = "{0:0>4}".format(ind)+'.bin'
-            for f in parameters['files']:
-                if f.endswith(file_ends):
-                    frames[ind] = f
+            for f in resource['files']:
+                if f['filename'].endswith("{0:0>4}".format(ind)+'.bin'):
+                    frames[ind] = f['filename']
 
         if None in [metafile, metadata] or len(frames) < 101:
             psiiCore.fail('Could not find all of frames/metadata.')
@@ -118,20 +139,32 @@ class PSIIBin2Png(Extractor):
         png_frames = {}
         # skip 0101.bin since 101 is an XML file that lists the frame times
         for ind in range(0, 101):
-            binbase = os.path.basename(frames[ind])[:-4]
-            png_path = os.path.join(out_dir, binbase+'.png')
+            png_path = os.path.join(out_dir, os.path.basename(frames[ind])[:-4]+'.png')
             png_frames[ind] = png_path
             if not os.path.exists(png_path) or self.force_overwrite:
+                logging.info("...generating and uploading %s" % png_path)
                 psiiCore.load_PSII_data(frames[ind], img_height, img_width, png_path)
-                logging.info("......uploading %s" % png_path)
-                pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+                if png_path not in resource['local_paths']:
+                    fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+                    uploaded_file_ids.append(fileid)
+                created += 1
+                bytes += os.path.getsize(png_path)
 
         # Generate aggregate outputs
+        logging.info("...generating aggregates")
         hist_path = os.path.join(out_dir, 'combined_hist.png')
         coloredImg_path = os.path.join(out_dir, 'combined_pseudocolored.png')
-        psiiCore.psii_analysis(png_frames, hist_path, coloredImg_path)
-        pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], hist_path)
-        pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], coloredImg_path)
+        if not (os.path.exists(hist_path) and os.path.exists(coloredImg_path)) or self.force_overwrite:
+            psiiCore.psii_analysis(png_frames, hist_path, coloredImg_path)
+            created += 2
+            bytes += os.path.getsize(hist_path)
+            bytes += os.path.getsize(coloredImg_path)
+        if hist_path not in resource['local_paths']:
+            fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], hist_path)
+            uploaded_file_ids.append(fileid)
+        if coloredImg_path not in resource['local_paths']:
+            fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], coloredImg_path)
+            uploaded_file_ids.append(fileid)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = {
@@ -139,13 +172,18 @@ class PSIIBin2Png(Extractor):
                 "@vocab": "https://clowder.ncsa.illinois.edu/clowder/assets/docs/api/index.html#!/files/uploadToDataset"
             },
             "dataset_id": resource['id'],
-            "content": {"status": "COMPLETED"},
+            "content": {
+                "files_created": uploaded_file_ids
+            },
             "agent": {
                 "@type": "cat:extractor",
                 "extractor_id": host + "/api/extractors/" + self.extractor_info['name']
             }
         }
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
+
+        endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        self.logToInfluxDB(starttime, endtime, created, bytes)
 
     def determineOutputDirectory(self, dsname):
         if dsname.find(" - ") > -1:
@@ -158,6 +196,7 @@ class PSIIBin2Png(Extractor):
             datestamp = ""
 
         return os.path.join(self.output_dir, datestamp, timestamp)
+
 
 if __name__ == "__main__":
     extractor = PSIIBin2Png()

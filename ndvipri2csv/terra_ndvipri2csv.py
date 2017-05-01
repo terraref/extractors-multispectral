@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
+
 """
 Extract NDVI or PRI from .bin file and Save to .csv file.
 """
@@ -6,7 +7,10 @@ Extract NDVI or PRI from .bin file and Save to .csv file.
 import os
 import csv
 import logging
-import numpy as np
+
+import datetime
+from dateutil.parser import parse
+from influxdb import InfluxDBClient, SeriesHelper
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
@@ -26,6 +30,16 @@ class BinValues2Csv(Extractor):
                                  help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
+        self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
+                                 default="terra-logging.ncsa.illinois.edu", help="InfluxDB URL for logging")
+        self.parser.add_argument('--influxPort', dest="influx_port", type=int, nargs='?',
+                                 default=8086, help="InfluxDB port")
+        self.parser.add_argument('--influxUser', dest="influx_user", type=str, nargs='?',
+                                 default="terra", help="InfluxDB username")
+        self.parser.add_argument('--influxPass', dest="influx_pass", type=str, nargs='?',
+                                 default="", help="InfluxDB password")
+        self.parser.add_argument('--influxDB', dest="influx_db", type=str, nargs='?',
+                                 default="extractor_db", help="InfluxDB databast")
 
         # parse command line and load default logging configuration
         self.setup()
@@ -37,13 +51,24 @@ class BinValues2Csv(Extractor):
         # assign other arguments
         self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
+        self.influx_host = self.args.influx_host
+        self.influx_port = self.args.influx_port
+        self.influx_user = self.args.influx_user
+        self.influx_pass = self.args.influx_pass
+        self.influx_db = self.args.influx_db
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # First, check if we have the correct sensor type
-        md = pyclowder.datasets.download_metadata(connector, host, secret_key,
-                                                  resource['parent']['id'])
+        md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['parent']['id'])
         sensortype = self.determineSensorType(md)
         if sensortype in ["ndvi", "pri"]:
+            for m in md:
+                # Check if this extractor has already been processed
+                if 'agent' in m and 'name' in m['agent']:
+                    if m['agent']['name'].find(self.extractor_info['name']) > -1:
+                        logging.info("skipping dataset %s, already processed" % resource['id'])
+                        return CheckMessage.ignore
+
             # Check if output already exists
             ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
             outPath = self.determineOutputDir(ds_info['name'])
@@ -56,10 +81,16 @@ class BinValues2Csv(Extractor):
             return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
+        starttime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        created = 0
+        bytes = 0
+
         ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
         # Determine output file path
         outPath = self.determineOutputDir(ds_info['name'])
         inPath = resource['local_paths'][0]
+
+        uploaded_file_ids = []
 
         # Extract NDVI values
         if not os.path.isfile(outPath) or self.force_overwrite:
@@ -73,9 +104,31 @@ class BinValues2Csv(Extractor):
                 wr.writeheader()
                 wr.writerow({'file_name':resource['name'], 'NDVI': values})
 
-            pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], outPath)
+            created += 1
+            bytes += os.path.getsize(outPath)
+
+            fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], outPath)
+            uploaded_file_ids.append(fileid)
         else:
             logging.info("%s already exists; skipping %s" % (outPath, resource['id']))
+
+        # Tell Clowder this is completed so subsequent file updates don't daisy-chain
+        metadata = {
+            # TODO: Generate JSON-LD context for additional fields
+            "@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
+            "dataset_id": resource['id'],
+            "content": {
+                "files_created": uploaded_file_ids
+            },
+            "agent": {
+                "@type": "cat:extractor",
+                "extractor_id": host + "/api/extractors/" + self.extractor_info['name']
+            }
+        }
+        pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
+
+        endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        self.logToInfluxDB(starttime, endtime, created, bytes)
 
     # Return sensor type based on metadata parameters
     def determineSensorType(self, md):
