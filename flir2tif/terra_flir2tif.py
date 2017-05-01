@@ -194,6 +194,28 @@ class FlirBin2JpgTiff(Extractor):
 
         return os.path.join(self.output_dir, datestamp, timestamp)
 
+    def logToInfluxDB(self, starttime, endtime, filecount, bytecount):
+        # Time of the format "2017-02-10T16:09:57+00:00"
+        f_completed_ts = int(parse(endtime).strftime('%s'))
+        f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))
+
+        client = InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, self.influx_pass, self.influx_db)
+        client.write_points([{
+            "measurement": "file_processed",
+            "time": f_completed_ts,
+            "fields": {"value": f_duration}
+        }], tags={"extractor": self.extractor_info['name'], "type": "duration"})
+        client.write_points([{
+            "measurement": "file_processed",
+            "time": f_completed_ts,
+            "fields": {"value": int(filecount)}
+        }], tags={"extractor": self.extractor_info['name'], "type": "filecount"})
+        client.write_points([{
+            "measurement": "file_processed",
+            "time": f_completed_ts,
+            "fields": {"value": int(bytecount)}
+        }], tags={"extractor": self.extractor_info['name'], "type": "bytes"})
+
 if __name__ == "__main__":
     extractor = FlirBin2JpgTiff()
     extractor.start()
