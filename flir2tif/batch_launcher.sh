@@ -9,4 +9,4 @@ module load python/2.7.10 pythonlibs/2.7.10
 source /projects/arpae/terraref/shared/extractors/pyenv/bin/activate
 
 # Run extractor script
-python /projects/arpae/terraref/shared/extractors/extractors-multispectral/bin2csv/terra_bin2csv.py
+python /projects/arpae/terraref/shared/extractors/extractors-multispectral/flir2tif/terra_flir2tif.py

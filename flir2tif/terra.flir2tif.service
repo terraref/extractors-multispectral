@@ -1,13 +1,13 @@
 [Unit]
-Description=FlirIr BIN Extractor
+Description=FlirIr BIN to TIF Converter
 After=network.target
 
 [Service]
 User=extractor
 Group=users
 Restart=on-failure
-WorkingDirectory=/home/extractor/extractors-multispectral/flir
-ExecStart=/usr/bin/python /home/extractor/extractors-multispectral/flir/terra_flir.py
+WorkingDirectory=/home/extractor/extractors-multispectral/flir2tif
+ExecStart=/usr/bin/python /home/extractor/extractors-multispectral/filr2tif/terra_flir2tif.py
 
 [Install]
 WantedBy=multi-user.target
