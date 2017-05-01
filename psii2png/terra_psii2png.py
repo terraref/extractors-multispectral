@@ -1,10 +1,11 @@
-'''
-Created on Jan 12, 2017
+#!/usr/bin/env python
 
-@author: Zongyang
-'''
 import os
 import logging
+
+import datetime
+from dateutil.parser import parse
+from influxdb import InfluxDBClient, SeriesHelper
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
@@ -25,6 +26,16 @@ class PSIIBin2Png(Extractor):
                                  help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
+        self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
+                                 default="terra-logging.ncsa.illinois.edu", help="InfluxDB URL for logging")
+        self.parser.add_argument('--influxPort', dest="influx_port", type=int, nargs='?',
+                                 default=8086, help="InfluxDB port")
+        self.parser.add_argument('--influxUser', dest="influx_user", type=str, nargs='?',
+                                 default="terra", help="InfluxDB username")
+        self.parser.add_argument('--influxPass', dest="influx_pass", type=str, nargs='?',
+                                 default="", help="InfluxDB password")
+        self.parser.add_argument('--influxDB', dest="influx_db", type=str, nargs='?',
+                                 default="extractor_db", help="InfluxDB databast")
 
         # parse command line and load default logging configuration
         self.setup()
@@ -36,6 +47,11 @@ class PSIIBin2Png(Extractor):
         # assign other arguments
         self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
+        self.influx_host = self.args.influx_host
+        self.influx_port = self.args.influx_port
+        self.influx_user = self.args.influx_user
+        self.influx_pass = self.args.influx_pass
+        self.influx_db = self.args.influx_db
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # Check for 0000-0101 bin files before beginning processing
@@ -79,7 +95,9 @@ class PSIIBin2Png(Extractor):
         return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
-        global outputDir
+        starttime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        created = 0
+        bytes = 0
 
         metafile, metadata = None, None
 
@@ -123,6 +141,10 @@ class PSIIBin2Png(Extractor):
             png_frames[ind] = png_path
             if not os.path.exists(png_path) or self.force_overwrite:
                 psiiCore.load_PSII_data(frames[ind], img_height, img_width, png_path)
+
+                created += 1
+                bytes += os.path.getsize(png_path)
+
                 logging.info("......uploading %s" % png_path)
                 pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
 
@@ -146,6 +168,9 @@ class PSIIBin2Png(Extractor):
             }
         }
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
+
+        endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        self.logToInfluxDB(starttime, endtime, created, bytes)
 
     def determineOutputDirectory(self, dsname):
         if dsname.find(" - ") > -1:

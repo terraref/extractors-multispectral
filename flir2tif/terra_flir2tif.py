@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 
-'''
-Created on Oct 6, 2016
-
-@author: Zongyang Li
-'''
-
 import os
 import logging
 import tempfile
 import shutil
+
+import datetime
+from dateutil.parser import parse
+from influxdb import InfluxDBClient, SeriesHelper
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
@@ -31,6 +29,16 @@ class FlirBin2JpgTiff(Extractor):
                                  help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
+        self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
+                                 default="terra-logging.ncsa.illinois.edu", help="InfluxDB URL for logging")
+        self.parser.add_argument('--influxPort', dest="influx_port", type=int, nargs='?',
+                                 default=8086, help="InfluxDB port")
+        self.parser.add_argument('--influxUser', dest="influx_user", type=str, nargs='?',
+                                 default="terra", help="InfluxDB username")
+        self.parser.add_argument('--influxPass', dest="influx_pass", type=str, nargs='?',
+                                 default="", help="InfluxDB password")
+        self.parser.add_argument('--influxDB', dest="influx_db", type=str, nargs='?',
+                                 default="extractor_db", help="InfluxDB databast")
 
         # parse command line and load default logging configuration
         self.setup()
@@ -42,6 +50,11 @@ class FlirBin2JpgTiff(Extractor):
         # assign other arguments
         self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
+        self.influx_host = self.args.influx_host
+        self.influx_port = self.args.influx_port
+        self.influx_user = self.args.influx_user
+        self.influx_pass = self.args.influx_pass
+        self.influx_db = self.args.influx_db
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # Check for an ir.BIN file and metadata before beginning processing
@@ -83,6 +96,10 @@ class FlirBin2JpgTiff(Extractor):
         return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
+        starttime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        created = 0
+        bytes = 0
+
         metafile, bin_file, metadata = None, None, None
 
         # Get BIN file and metadata
@@ -119,6 +136,10 @@ class FlirBin2JpgTiff(Extractor):
         if not os.path.exists(png_path) or self.force_overwrite:
             raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
             im_color = getFlir.create_png(raw_data, png_path) # create png
+
+            created += 1
+            bytes += os.path.getsize(png_path)
+
             logging.info("...uploading output PNG to dataset")
             pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
 
@@ -137,6 +158,10 @@ class FlirBin2JpgTiff(Extractor):
                 getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, out_tmp_tiff[1]) # create geotiff
                 shutil.copyfile(out_tmp_tiff[1], tiff_path)
                 os.remove(out_tmp_tiff[1])
+
+                created += 1
+                bytes += os.path.getsize(tiff_path)
+
                 logging.info("...uploading output TIFF to dataset")
                 pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
 
@@ -152,6 +177,9 @@ class FlirBin2JpgTiff(Extractor):
             }
         }
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
+
+        endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        self.logToInfluxDB(starttime, endtime, created, bytes)
 
     def determineOutputPath(self, dsname):
         if dsname.find(" - ") > -1:
