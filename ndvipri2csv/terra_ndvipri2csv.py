@@ -59,10 +59,16 @@ class BinValues2Csv(Extractor):
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # First, check if we have the correct sensor type
-        md = pyclowder.datasets.download_metadata(connector, host, secret_key,
-                                                  resource['parent']['id'])
+        md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['parent']['id'])
         sensortype = self.determineSensorType(md)
         if sensortype in ["ndvi", "pri"]:
+            for m in md:
+                # Check if this extractor has already been processed
+                if 'agent' in m and 'name' in m['agent']:
+                    if m['agent']['name'].find(self.extractor_info['name']) > -1:
+                        logging.info("skipping dataset %s, already processed" % resource['id'])
+                        return CheckMessage.ignore
+
             # Check if output already exists
             ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
             outPath = self.determineOutputDir(ds_info['name'])
@@ -84,6 +90,8 @@ class BinValues2Csv(Extractor):
         outPath = self.determineOutputDir(ds_info['name'])
         inPath = resource['local_paths'][0]
 
+        uploaded_file_ids = []
+
         # Extract NDVI values
         if not os.path.isfile(outPath) or self.force_overwrite:
             logging.info("...writing values to: %s" % outPath)
@@ -99,9 +107,25 @@ class BinValues2Csv(Extractor):
             created += 1
             bytes += os.path.getsize(outPath)
 
-            pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], outPath)
+            fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['parent']['id'], outPath)
+            uploaded_file_ids.append(fileid)
         else:
             logging.info("%s already exists; skipping %s" % (outPath, resource['id']))
+
+        # Tell Clowder this is completed so subsequent file updates don't daisy-chain
+        metadata = {
+            # TODO: Generate JSON-LD context for additional fields
+            "@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
+            "dataset_id": resource['id'],
+            "content": {
+                "files_created": uploaded_file_ids
+            },
+            "agent": {
+                "@type": "cat:extractor",
+                "extractor_id": host + "/api/extractors/" + self.extractor_info['name']
+            }
+        }
+        pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         self.logToInfluxDB(starttime, endtime, created, bytes)

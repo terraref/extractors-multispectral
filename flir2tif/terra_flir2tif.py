@@ -80,15 +80,14 @@ class FlirBin2JpgTiff(Extractor):
             # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
             if not found_md:
                 md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['id'])
-                if len(md) > 0:
-                    for m in md:
-                        # Check if this extractor has already been processed
-                        if 'agent' in m and 'name' in m['agent']:
-                            if m['agent']['name'].find(self.extractor_info['name']) > -1:
-                                logging.info("skipping dataset %s, already processed" % resource['id'])
-                                return CheckMessage.ignore
-                        if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
-                            found_md = True
+                for m in md:
+                    # Check if this extractor has already been processed
+                    if 'agent' in m and 'name' in m['agent']:
+                        if m['agent']['name'].find(self.extractor_info['name']) > -1:
+                            logging.info("skipping dataset %s, already processed" % resource['id'])
+                            return CheckMessage.ignore
+                    if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
+                        found_md = True
             if found_md:
                 return CheckMessage.download
 
