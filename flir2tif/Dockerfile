@@ -10,12 +10,11 @@ RUN useradd -u 49044 extractor \
 
 # Install necessary requirements
 RUN apt-get -y update \
-    && apt-get install -y -q build-essential \
-        python-gdal \
+    && apt-get install -y -q python-gdal \
         libpng-dev \
         libjpeg8-dev \
         libfreetype6-dev \
-    && usr/bin/yes | apt-get build-dep python-matplotlib \
+        python-matplotlib \
     && pip install --upgrade python-dateutil \
         numpy \
         pillow \
