@@ -4,13 +4,14 @@ MAINTAINER Max Burnette <mburnet2@illinois.edu>
 # Create user with necessary user ID for writing permissions on Roger
 RUN useradd -u 49044 extractor \
     && mkdir /home/extractor \
+    && mkdir -p /home/extractor/sites/ua-mac/raw_data \
+    && mkdir -p /home/extractor/sites/ua-mac/Level_1/flir2tif \
     && chown -R extractor /home/extractor
 
 # Install necessary requirements
 RUN apt-get -y update \
     && apt-get install -y -q build-essential \
         python-gdal \
-        libnetcdf-dev \
         libpng-dev \
         libjpeg8-dev \
         libfreetype6-dev \

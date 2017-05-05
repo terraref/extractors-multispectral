@@ -26,6 +26,8 @@ _Running the image locally_
 ```
 docker run \
   -p 5672 -p 9000 --add-host="localhost:{LOCAL_IP}" \
+  -v /local/raw_data/folder:/home/extractor/sites/ua-mac/raw_data \
+  -v /local/output/root/folder:/home/extractor/sites/ua-mac/Level_1/flir2tif \
   -e RABBITMQ_URI=amqp://{RMQ_USER}:{RMQ_PASSWORD}@localhost:5672/%2f \
   -e RABBITMQ_EXCHANGE=clowder \
   -e REGISTRATION_ENDPOINTS=http://localhost:9000/clowder/api/extractors?key={SECRET_KEY} \
@@ -37,9 +39,12 @@ Note that by default RabbitMQ will not allow "guest:guest" access to non-local a
 _Running the image remotely_
 ```
 docker run \
+  -v /sites/ua-mac/raw_data:/home/extractor/sites/ua-mac/raw_data \
+  -v /sites/ua-mac/Level_1/flir2tif:/home/extractor/sites/ua-mac/Level_1/flir2tif \
   -e RABBITMQ_URI=amqp://{RMQ_USER}:{RMQ_PASSWORD}@rabbitmq.ncsa.illinois.edu/clowder \
   -e RABBITMQ_EXCHANGE=terra \
   -e REGISTRATION_ENDPOINTS=http://terraref.ncsa.illinosi.edu/clowder//api/extractors?key={SECRET_KEY} \
+  -e INFLUXDB_PASSWORD={INFLUX_PASS} \
   terra-ext-flir2tif
 ```
 

@@ -2,7 +2,6 @@
 
 import os
 import logging
-import tempfile
 import shutil
 
 import datetime
@@ -27,7 +26,7 @@ class FlirBin2JpgTiff(Extractor):
         # self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
         #                          help='maximum number (default=-1)')
         self.parser.add_argument('--output', '-o', dest="output_dir", type=str, nargs='?',
-                                 default="/home/extractor/sites/ua-mac/Level_1/flirIrCamera",
+                                 default="/home/extractor/sites/ua-mac/Level_1/flir2tif",
                                  help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
