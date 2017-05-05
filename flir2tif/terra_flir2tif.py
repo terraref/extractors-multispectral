@@ -21,6 +21,8 @@ class FlirBin2JpgTiff(Extractor):
     def __init__(self):
         Extractor.__init__(self)
 
+        influx_pass = os.getenv('INFLUXDB_PASSWORD', "")
+
         # add any additional arguments to parser
         # self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
         #                          help='maximum number (default=-1)')
@@ -36,7 +38,7 @@ class FlirBin2JpgTiff(Extractor):
         self.parser.add_argument('--influxUser', dest="influx_user", type=str, nargs='?',
                                  default="terra", help="InfluxDB username")
         self.parser.add_argument('--influxPass', dest="influx_pass", type=str, nargs='?',
-                                 default="", help="InfluxDB password")
+                                 default=influx_pass, help="InfluxDB password")
         self.parser.add_argument('--influxDB', dest="influx_db", type=str, nargs='?',
                                  default="extractor_db", help="InfluxDB databast")
 

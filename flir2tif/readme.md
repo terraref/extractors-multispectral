@@ -29,6 +29,7 @@ docker run \
   -e RABBITMQ_URI=amqp://{RMQ_USER}:{RMQ_PASSWORD}@localhost:5672/%2f \
   -e RABBITMQ_EXCHANGE=clowder \
   -e REGISTRATION_ENDPOINTS=http://localhost:9000/clowder/api/extractors?key={SECRET_KEY} \
+  -e INFLUXDB_PASSWORD={INFLUX_PASS} \
   terra-ext-flir2tif
 ```
 Note that by default RabbitMQ will not allow "guest:guest" access to non-local addresses, which includes Docker. You may need to create an additional local RabbitMQ user for testing.
