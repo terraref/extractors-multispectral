@@ -101,8 +101,6 @@ class FlirBin2JpgTiff(Extractor):
 
         metafile, bin_file, metadata = None, None, None
 
-        print(resource)
-
         # Get BIN file and metadata
         for f in resource['local_paths']:
             # First check metadata attached to dataset in Clowder for item of interest
