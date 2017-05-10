@@ -101,6 +101,8 @@ class FlirBin2JpgTiff(Extractor):
 
         metafile, bin_file, metadata = None, None, None
 
+        print(resource)
+
         # Get BIN file and metadata
         for f in resource['local_paths']:
             # First check metadata attached to dataset in Clowder for item of interest
@@ -128,7 +130,7 @@ class FlirBin2JpgTiff(Extractor):
 
         uploaded_file_ids = []
 
-        png_path = os.path.join(out_dir, os.path.basename(bin_file)[:-7]+'.png')
+        png_path = os.path.join(out_dir, resource['dataset_info']['name']+'.png')
         if not os.path.exists(png_path) or self.force_overwrite:
             logging.info("...creating PNG image")
             raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
@@ -142,7 +144,7 @@ class FlirBin2JpgTiff(Extractor):
                 uploaded_file_ids.append(fileid)
 
 
-        tiff_path = os.path.join(out_dir, os.path.basename(bin_file)[:-7]+'.tif')
+        tiff_path = os.path.join(out_dir, resource['dataset_info']['name']+'.tif')
         if not os.path.exists(tiff_path) or self.force_overwrite:
             logging.info("...getting information from json file for geoTIFF")
             center_position, scan_time, fov = getFlir.parse_metadata(metadata)

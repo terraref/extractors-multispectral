@@ -10,11 +10,12 @@ RUN useradd -u 49044 extractor \
 
 # Install necessary requirements
 RUN apt-get -y update \
-    && apt-get install -y -q python-gdal \
+    && apt-get install -y -q build-essential python-gdal \
+        python-dev python-tk gcc make  \
         libpng-dev \
         libjpeg8-dev \
         libfreetype6-dev \
-        python-matplotlib \
+    && rm -rf /var/lib/apt/lists/* \
     && pip install --upgrade python-dateutil \
         numpy \
         pillow \
@@ -23,7 +24,7 @@ RUN apt-get -y update \
         urllib3
 
 # command to run when starting docker
-COPY entrypoint.sh extractor_info.json *.py /home/extractor/
+COPY entrypoint.sh extractor_info.json terra_flir2tif.py Get_FLIR.py /home/extractor/
 
 USER extractor
 ENTRYPOINT ["/home/extractor/entrypoint.sh"]
