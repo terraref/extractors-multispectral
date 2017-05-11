@@ -210,8 +210,8 @@ class FlirBin2JpgTiff(Extractor):
 
     def logToInfluxDB(self, starttime, endtime, filecount, bytecount):
         # Time of the format "2017-02-10T16:09:57+00:00"
-        f_completed_ts = int(parse(endtime).strftime('%s'))
-        f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))
+        f_completed_ts = int(parse(endtime).strftime('%s'))*1000000000
+        f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))*1000000000
 
         client = InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, self.influx_pass, self.influx_db)
         client.write_points([{
