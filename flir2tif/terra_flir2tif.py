@@ -3,15 +3,15 @@
 import os
 import logging
 import shutil
-
 import datetime
-from dateutil.parser import parse
-from influxdb import InfluxDBClient, SeriesHelper
+
+import numpy as np
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.files
 import pyclowder.datasets
+import terrautils.extractors
 
 import Get_FLIR as getFlir
 
@@ -134,7 +134,7 @@ class FlirBin2JpgTiff(Extractor):
             return
 
         # Determine output directory
-        out_dir = self.determineOutputPath(resource['dataset_info']['name'])
+        out_dir = terrautils.extractors.get_output_directory(self.output_dir, resource['dataset_info']['name'])
         logging.info("...writing outputs to: %s" % out_dir)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -144,8 +144,10 @@ class FlirBin2JpgTiff(Extractor):
         png_path = os.path.join(out_dir, resource['dataset_info']['name']+'.png')
         if not os.path.exists(png_path) or self.force_overwrite:
             logging.info("...creating PNG image")
-            raw_data = getFlir.load_flir_data(bin_file) # get raw data from bin file
-            im_color = getFlir.create_png(raw_data, png_path) # create png
+            # get raw data from bin file
+            raw_data = np.fromfile(bin_file, np.dtype('<u2')).reshape([480, 640])
+            raw_data = raw_data.astype('float')
+            terrautils.extractors.create_png(raw_data, png_path, True)
 
             created += 1
             bytes += os.path.getsize(png_path)
@@ -154,81 +156,33 @@ class FlirBin2JpgTiff(Extractor):
                 fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
                 uploaded_file_ids.append(fileid)
 
-
         tiff_path = os.path.join(out_dir, resource['dataset_info']['name']+'.tif')
         if not os.path.exists(tiff_path) or self.force_overwrite:
             logging.info("...getting information from json file for geoTIFF")
-            center_position, scan_time, fov = getFlir.parse_metadata(metadata)
-            if center_position is None or scan_time is None or fov is None:
-                logging.error("error getting metadata; skipping geoTIFF")
-            else:
-                gps_bounds = getFlir.get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
+            scan_time = terrautils.extractors.calculate_scan_time(metadata)
+            gps_bounds = terrautils.extractors.calculate_geometry(metadata, "flirIrCamera")
+            tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
 
-                logging.info("...creating TIFF image")
-                # Rename temporary tif after creation to avoid long path errors
-                out_tmp_tiff = "/home/extractor/"+resource['dataset_info']['name']+".tif"
-                tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
-                getFlir.create_geotiff_with_temperature(im_color, tc, gps_bounds, out_tmp_tiff) # create geotiff
-                shutil.move(out_tmp_tiff, tiff_path)
+            logging.info("...creating TIFF image")
+            # Rename temporary tif after creation to avoid long path errors
+            out_tmp_tiff = "/home/extractor/"+resource['dataset_info']['name']+".tif"
+            terrautils.extractors.create_geotiff(tc, gps_bounds, out_tmp_tiff, None)
+            shutil.move(out_tmp_tiff, tiff_path)
 
-                created += 1
-                bytes += os.path.getsize(tiff_path)
+            created += 1
+            bytes += os.path.getsize(tiff_path)
 
-                if tiff_path not in resource["local_paths"]:
-                    fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
-                    uploaded_file_ids.append(fileid)
+            if tiff_path not in resource["local_paths"]:
+                fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
+                uploaded_file_ids.append(fileid)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        metadata = {
-            # TODO: Generate JSON-LD context for additional fields
-            "@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
-            "dataset_id": resource['id'],
-            "content": {
-                "files_created": uploaded_file_ids
-            },
-            "agent": {
-                "@type": "cat:extractor",
-                "extractor_id": host + "/api/extractors/" + self.extractor_info['name']
-            }
-        }
+        metadata = terrautils.extractors.build_metadata(host, self.extractor_info['name'], resource['id'], {
+            "files_created": uploaded_file_ids}, 'dataset')
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        self.logToInfluxDB(starttime, endtime, created, bytes)
-
-    def determineOutputPath(self, dsname):
-        if dsname.find(" - ") > -1:
-            timestamp = dsname.split(" - ")[1]
-        else:
-            timestamp = "dsname"
-        if timestamp.find("__") > -1:
-            datestamp = timestamp.split("__")[0]
-        else:
-            datestamp = ""
-
-        return os.path.join(self.output_dir, datestamp, timestamp)
-
-    def logToInfluxDB(self, starttime, endtime, filecount, bytecount):
-        # Time of the format "2017-02-10T16:09:57+00:00"
-        f_completed_ts = int(parse(endtime).strftime('%s'))*1000000000
-        f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))*1000000000
-
-        client = InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, self.influx_pass, self.influx_db)
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": f_duration}
-        }], tags={"extractor": self.extractor_info['name'], "type": "duration"})
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": int(filecount)}
-        }], tags={"extractor": self.extractor_info['name'], "type": "filecount"})
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": int(bytecount)}
-        }], tags={"extractor": self.extractor_info['name'], "type": "bytes"})
+        terrautils.extractors.log_to_influxdb(self.extractor_info['name'], starttime, endtime, created, bytes)
 
 if __name__ == "__main__":
     extractor = FlirBin2JpgTiff()

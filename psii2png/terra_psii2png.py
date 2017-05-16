@@ -2,14 +2,14 @@
 
 import os
 import logging
-
 import datetime
-from dateutil.parser import parse
-from influxdb import InfluxDBClient, SeriesHelper
+
+import numpy as np
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.datasets
+import terrautils.extractors
 
 import PSII_analysis as psiiCore
 
@@ -143,12 +143,15 @@ class PSIIBin2Png(Extractor):
             png_frames[ind] = png_path
             if not os.path.exists(png_path) or self.force_overwrite:
                 logging.info("...generating and uploading %s" % png_path)
-                psiiCore.load_PSII_data(frames[ind], img_height, img_width, png_path)
+                pixels = np.fromfile(frames[ind], np.dtype('uint8')).reshape([img_height, img_width])
+                terrautils.extractors.create_png(pixels, png_path)
+
+                created += 1
+                bytes += os.path.getsize(png_path)
+
                 if png_path not in resource['local_paths']:
                     fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
                     uploaded_file_ids.append(fileid)
-                created += 1
-                bytes += os.path.getsize(png_path)
 
         # Generate aggregate outputs
         logging.info("...generating aggregates")
@@ -167,57 +170,13 @@ class PSIIBin2Png(Extractor):
             uploaded_file_ids.append(fileid)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        metadata = {
-            "@context": {
-                "@vocab": "https://clowder.ncsa.illinois.edu/clowder/assets/docs/api/index.html#!/files/uploadToDataset"
-            },
-            "dataset_id": resource['id'],
-            "content": {
-                "files_created": uploaded_file_ids
-            },
-            "agent": {
-                "@type": "cat:extractor",
-                "extractor_id": host + "/api/extractors/" + self.extractor_info['name']
-            }
-        }
+        metadata = terrautils.extractors.build_metadata(host, self.extractor_info['name'], resource['id'], {
+                                                            "files_created": uploaded_file_ids}, 'dataset')
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        self.logToInfluxDB(starttime, endtime, created, bytes)
+        terrautils.extractors.log_to_influxdb(self.extractor_info['name'], starttime, endtime, created, bytes)
 
-    def determineOutputDirectory(self, dsname):
-        if dsname.find(" - ") > -1:
-            timestamp = dsname.split(" - ")[1]
-        else:
-            timestamp = "dsname"
-        if timestamp.find("__") > -1:
-            datestamp = timestamp.split("__")[0]
-        else:
-            datestamp = ""
-
-        return os.path.join(self.output_dir, datestamp, timestamp)
-
-    def logToInfluxDB(self, starttime, endtime, filecount, bytecount):
-        # Time of the format "2017-02-10T16:09:57+00:00"
-        f_completed_ts = int(parse(endtime).strftime('%s'))*1000000000
-        f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))*1000000000
-
-        client = InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, self.influx_pass, self.influx_db)
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": f_duration}
-        }], tags={"extractor": self.extractor_info['name'], "type": "duration"})
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": int(filecount)}
-        }], tags={"extractor": self.extractor_info['name'], "type": "filecount"})
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": int(bytecount)}
-        }], tags={"extractor": self.extractor_info['name'], "type": "bytes"})
 
 if __name__ == "__main__":
     extractor = PSIIBin2Png()

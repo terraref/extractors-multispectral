@@ -7,15 +7,13 @@ Extract NDVI or PRI from .bin file and Save to .csv file.
 import os
 import csv
 import logging
-
 import datetime
-from dateutil.parser import parse
-from influxdb import InfluxDBClient, SeriesHelper
 
 from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.files
 import pyclowder.datasets
+import terrautils.extractors
 
 
 class BinValues2Csv(Extractor):
@@ -113,22 +111,12 @@ class BinValues2Csv(Extractor):
             logging.info("%s already exists; skipping %s" % (outPath, resource['id']))
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        metadata = {
-            # TODO: Generate JSON-LD context for additional fields
-            "@context": ["https://clowder.ncsa.illinois.edu/contexts/metadata.jsonld"],
-            "dataset_id": resource['id'],
-            "content": {
-                "files_created": uploaded_file_ids
-            },
-            "agent": {
-                "@type": "cat:extractor",
-                "extractor_id": host + "/api/extractors/" + self.extractor_info['name']
-            }
-        }
+        metadata = terrautils.extractors.build_metadata(host, self.extractor_info['name'], resource['id'], {
+            "files_created": uploaded_file_ids}, 'dataset')
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        self.logToInfluxDB(starttime, endtime, created, bytes)
+        terrautils.extractors.log_to_influxdb(self.extractor_info['name'], starttime, endtime, created, bytes)
 
     # Return sensor type based on metadata parameters
     def determineSensorType(self, md):
@@ -163,28 +151,6 @@ class BinValues2Csv(Extractor):
             subPath = ds_name
 
         return os.path.join(self.output_dir, subPath, "extracted_values.csv")
-
-    def logToInfluxDB(self, starttime, endtime, filecount, bytecount):
-        # Time of the format "2017-02-10T16:09:57+00:00"
-        f_completed_ts = int(parse(endtime).strftime('%s'))*1000000000
-        f_duration = f_completed_ts - int(parse(starttime).strftime('%s'))*1000000000
-
-        client = InfluxDBClient(self.influx_host, self.influx_port, self.influx_user, self.influx_pass, self.influx_db)
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": f_duration}
-        }], tags={"extractor": self.extractor_info['name'], "type": "duration"})
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": int(filecount)}
-        }], tags={"extractor": self.extractor_info['name'], "type": "filecount"})
-        client.write_points([{
-            "measurement": "file_processed",
-            "time": f_completed_ts,
-            "fields": {"value": int(bytecount)}
-        }], tags={"extractor": self.extractor_info['name'], "type": "bytes"})
 
 if __name__ == "__main__":
     extractor = BinValues2Csv()
