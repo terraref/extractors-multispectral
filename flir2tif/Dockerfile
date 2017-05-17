@@ -1,30 +1,14 @@
-FROM clowder/pyclowder:2
+FROM maxzilla2/terrautils
 MAINTAINER Max Burnette <mburnet2@illinois.edu>
 
 # Create user with necessary user ID for writing permissions on Roger
 RUN useradd -u 49044 extractor \
-    && mkdir /home/extractor \
     && mkdir -p /home/extractor/sites/ua-mac/raw_data \
     && mkdir -p /home/extractor/sites/ua-mac/Level_1/flir2tif \
     && chown -R extractor /home/extractor
 
-# Install necessary requirements
-RUN apt-get -y update \
-    && apt-get install -y -q build-essential python-gdal \
-        python-dev python-tk gcc make  \
-        libpng-dev \
-        libjpeg8-dev \
-        libfreetype6-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --upgrade python-dateutil \
-        numpy \
-        pillow \
-        matplotlib \
-        influxdb \
-        urllib3
-
 # command to run when starting docker
-COPY entrypoint.sh extractor_info.json terra_flir2tif.py Get_FLIR.py /home/extractor/
+COPY entrypoint.sh extractor_info.json *.py /home/extractor/
 
 USER extractor
 ENTRYPOINT ["/home/extractor/entrypoint.sh"]
@@ -37,4 +21,5 @@ CMD ["extractor"]
 ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
     RABBITMQ_QUEUE="terra.multispectral.flir2tif" \
+    MOUNTED_PATHS='{"home/clowder/sites":"/home/extractor/sites"}' \
     MAIN_SCRIPT="terra_flir2tif.py"
