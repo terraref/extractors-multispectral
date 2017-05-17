@@ -58,18 +58,8 @@ class FlirBin2JpgTiff(Extractor):
         self.influx_db = self.args.influx_db
 
     def check_message(self, connector, host, secret_key, resource, parameters):
-        # Most basic check - is this most recent file for this dataset?
-        if resource['latest_file']:
-            latest_file = ""
-            latest_time = "Sun Jan 01 00:00:01 CDT 1920"
-            for f in resource['files']:
-                create_time = datetime.datetime.strptime(f['date-created'].replace(" CDT",""), "%c")
-                if create_time > datetime.datetime.strptime(latest_time.replace(" CDT",""), "%c"):
-                    latest_time = f['date-created']
-                    latest_file = f['filename']
-            if latest_file != resource['latest_file']:
-                # This message is not for most recently added file; skip dataset for now
-                return CheckMessage.ignore
+        if not terrautils.extractors.is_latest_file(resource):
+            return CheckMessage.ignore
 
         # Check for an ir.BIN file and metadata before beginning processing
         found_ir = None
@@ -83,10 +73,11 @@ class FlirBin2JpgTiff(Extractor):
 
         if found_ir:
             # Check if outputs already exist
-            out_dir = self.determineOutputPath(resource['dataset_info']['name'])
-            binbase = os.path.basename(found_ir)[:-7]
-            png_path = os.path.join(out_dir, binbase+'.png')
-            tiff_path = os.path.join(out_dir, binbase+'.tif')
+            ds_name = resource['dataset_info']['name']
+            out_dir = terrautils.extractors.get_output_directory(self.output_dir, ds_name)
+            png_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_name, 'png'))
+            tiff_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_name, 'png'))
+
             if os.path.exists(png_path) and os.path.exists(tiff_path) and not self.force_overwrite:
                 logging.info("skipping dataset %s, outputs already exist" % resource['id'])
                 return CheckMessage.ignore
@@ -134,14 +125,17 @@ class FlirBin2JpgTiff(Extractor):
             return
 
         # Determine output directory
-        out_dir = terrautils.extractors.get_output_directory(self.output_dir, resource['dataset_info']['name'])
+        ds_name = resource['dataset_info']['name']
+        out_dir = terrautils.extractors.get_output_directory(self.output_dir, ds_name)
+        png_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_name, 'png'))
+        tiff_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_name, 'png'))
+
         logging.info("...writing outputs to: %s" % out_dir)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
         uploaded_file_ids = []
 
-        png_path = os.path.join(out_dir, resource['dataset_info']['name']+'.png')
         if not os.path.exists(png_path) or self.force_overwrite:
             logging.info("...creating PNG image")
             # get raw data from bin file
@@ -156,7 +150,6 @@ class FlirBin2JpgTiff(Extractor):
                 fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
                 uploaded_file_ids.append(fileid)
 
-        tiff_path = os.path.join(out_dir, resource['dataset_info']['name']+'.tif')
         if not os.path.exists(tiff_path) or self.force_overwrite:
             logging.info("...getting information from json file for geoTIFF")
             scan_time = terrautils.extractors.calculate_scan_time(metadata)
