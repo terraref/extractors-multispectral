@@ -6,7 +6,7 @@ MAINTAINER Max Burnette <mburnet2@illinois.edu>
 # Create user with necessary user ID for writing permissions on Roger
 RUN useradd -u 49044 extractor \
     && mkdir -p /home/extractor/sites/ua-mac/raw_data \
-    && mkdir -p /home/extractor/sites/ua-mac/Level_1/flir2tif \
+    && mkdir -p /home/extractor/sites/ua-mac/Level_1/ps2_png \
     && chown -R extractor /home/extractor
 
 # command to run when starting docker
@@ -22,6 +22,6 @@ CMD ["extractor"]
 # executed by entrypoint.sh
 ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
-    RABBITMQ_QUEUE="terra.multispectral.flir2tif" \
+    RABBITMQ_QUEUE="terra.multispectral.psii2png" \
     MOUNTED_PATHS='{"home/clowder/sites":"/home/extractor/sites"}' \
-    MAIN_SCRIPT="terra_flir2tif.py"
+    MAIN_SCRIPT="terra_psii2png.py"
