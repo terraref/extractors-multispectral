@@ -1,5 +1,7 @@
-FROM maxzilla2/terrautils
+FROM terraref/terrautils
 MAINTAINER Max Burnette <mburnet2@illinois.edu>
+
+# TODO: Dockerhub automated builds from tags
 
 # Create user with necessary user ID for writing permissions on Roger
 RUN useradd -u 49044 extractor \
