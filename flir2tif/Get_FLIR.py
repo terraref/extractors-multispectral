@@ -4,7 +4,7 @@ Created on Aug 23, 2016
 @author: Zongyang Li
 '''
 
-import os, json, sys, math, argparse
+import os, json, sys, math, argparse, utm, shutil
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from glob import glob
@@ -14,10 +14,23 @@ from math import cos, pi
 from osgeo import gdal, osr
 from numpy.matlib import repmat
 from datetime import date
+import multiprocessing
 
-ZERO_ZERO = (33.07451869,-111.97477775)
+ZERO_ZERO = (33.0745,-111.97475)
 
 mode_date = date(2016, 9, 15)
+
+# Scanalyzer -> MAC formular @ https://terraref.gitbooks.io/terraref-documentation/content/user/geospatial-information.html
+# Mx = ax + bx * Gx + cx * Gy
+# My = ay + by * Gx + cy * Gy
+SE_latlon = (33.07451869,-111.97477775)
+ay = 3659974.971; by = 1.0002; cy = 0.0078;
+ax = 409012.2032; bx = 0.009; cx = - 0.9986;
+lon_shift = 0.000020308287
+lat_shift = 0.000015258894
+SE_utm = utm.from_latlon(SE_latlon[0], SE_latlon[1])
+
+TILE_FOLDER_NAME = 'tif_list'
 
 class calibParam:
     def __init__(self):
@@ -59,14 +72,38 @@ def main():
     
     args = options()
     
+    # If there is a pre-existing tiles folder with this name, delete it (failing to do so can result in some weirdness when you load tiles later)
+    if os.path.exists(args.out_dir):
+        shutil.rmtree(args.out_dir)
+    
+    os.makedirs(args.out_dir)
+    
     print "Starting binary to image conversion..."
     full_day_convert(args.in_dir, args.out_dir)
     print "Completed binary to image conversion..."
     
+    createVrt(args.out_dir, os.path.join(args.out_dir, 'tif_list.txt'))
+    
+    # Generate tiles from VRT
+    print "Starting map tile creation..."
+    createMapTiles(args.out_dir,multiprocessing.cpu_count())
+    print "Completed map tile creation..."
+    
+    generate_googlemaps(args.out_dir)
     
     return
 
 def full_day_convert(in_dir, out_dir):
+    
+    if not os.path.isdir(out_dir):
+        os.makedirs(out_dir)
+        
+    tif_list_file = os.path.join(out_dir, 'tif_list.txt')
+    # Create a file to write the paths for all of the TIFFs. This will be used create the VRT.
+    try:
+        os.remove(tif_list_file) # start from a fresh list of TIFFs for the day
+    except OSError:
+        pass
     
     list_dirs = os.walk(in_dir)
     
@@ -78,49 +115,52 @@ def full_day_convert(in_dir, out_dir):
                 continue
             
             try:
-                get_flir(input_path, output_path)
+                get_flir(input_path, output_path, tif_list_file)
             except Exception as ex:
                 fail('Error processing flir data in: ' + input_path + str(ex))
     
     return
 
 
-def get_flir(in_dir, out_dir):
-    
-    metafile, binfile = find_files(in_dir)
-    if metafile == [] or binfile == [] :
-        return
+def get_flir(in_dir, out_dir, tif_list_file):
     
     if not os.path.exists(out_dir):
         try:
             os.mkdir(out_dir)
         except:
             fail('Failed to create directory in ' + out_dir)
-
-
+    
+    metafile, binfile = find_files(in_dir)
+    if metafile == [] or binfile == [] :
+        return
+    
+    metadata = lower_keys(load_json(metafile)) # load json file
+    
+    center_position, scan_time, fov = parse_metadata(metadata) # get information from json file
+    
+    fix_fov = get_new_fov(center_position[2], fov)
+    
+    gps_bounds = get_bounding_box_with_formula(center_position, fix_fov) # get bounding box using gantry position and fov of camera
+    
     raw_data = load_flir_data(binfile) # get raw data from bin file
     
     filename = os.path.basename(binfile)
     temp_name = os.path.join(out_dir, filename)
     out_png = temp_name[:-3] + 'png'
     
-    im_color = create_png(raw_data, out_png) # create png
-
-
-    metadata = lower_keys(load_json(metafile)) # load json file
-
-    center_position, scan_time, fov = parse_metadata(metadata) # get information from json file
-
-    if center_position is None or scan_time is None or fov is None:
-        print("error getting metadata; skipping geoTIFF")
-    else:
-        gps_bounds = get_bounding_box(center_position, fov) # get bounding box using gantry position and fov of camera
-
-        tc = rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
-
-        tif_path = temp_name[:-3] + 'tif'
-
-        create_geotiff_with_temperature(im_color, tc, gps_bounds, tif_path) # create geotiff
+    gmin = 13000
+    gmax = 18000
+    im_color = flir_data_visualization(raw_data, out_png, gmin, gmax) # create png
+    
+    tc = rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
+    
+    tif_path = temp_name[:-3] + 'tif'
+    
+    create_geotiff_with_temperature(im_color, tc, gps_bounds, tif_path) # create geotiff
+    
+    # once we've saved the image, make sure to append this path to our list of TIFs
+    f = open(tif_list_file,'a+')
+    f.write(tif_path + '\n')
     
     return
 
@@ -129,7 +169,7 @@ def rawData_to_temperature(rawData, scan_time, metadata):
     
     try:
         calibP = get_calibrate_param(metadata)
-        tc = np.zeros((480, 640))
+        tc = np.zeros((640, 480))
         
         if not calibP.calibrated:
             tc = rawData/10 - 273.15
@@ -222,7 +262,7 @@ def create_geotiff(np_arr, gps_bounds, out_file_path):
         srs = osr.SpatialReference() # establish coordinate encoding
         srs.ImportFromEPSG(4326) # specifically, google mercator
         output_raster.SetProjection( srs.ExportToWkt() ) # export coordinate system to file
-
+        
         # TODO: Something wonky w/ uint8s --> ending up w/ lots of gaps in data (white pixels)
         output_raster.GetRasterBand(1).WriteArray(np_arr.astype('uint8')) # write red channel to raster file
         output_raster.GetRasterBand(1).FlushCache()
@@ -244,14 +284,15 @@ def load_flir_data(file_path):
     try:
         im = np.fromfile(file_path, np.dtype('<u2')).reshape([480, 640])
         im = im.astype('float')
+        im = np.rot90(im, 3)   # rotate 90 degree to fit camera position
         return im
     except Exception as ex:
         fail('Error loading bin file' + str(ex))
         
-def create_png(im, outfile_path):
+def flir_data_visualization(im, outfile_path, Gmin, Gmax):
     
-    Gmin = im.min()
-    Gmax = im.max()
+    #Gmin = im.min()
+    #Gmax = im.max()
     At = (im-Gmin)/(Gmax - Gmin)
     
     my_cmap = cm.get_cmap('jet')
@@ -335,13 +376,34 @@ def get_bounding_box(center_position, fov):
         lng_min_offset = x_min/(r * cos(pi * ZERO_ZERO[0]/180)) * 180/pi
         lng_max_offset = x_max/(r * cos(pi * ZERO_ZERO[0]/180)) * 180/pi
 
-        lat_min = ZERO_ZERO[0] + lat_min_offset
-        lat_max = ZERO_ZERO[0] + lat_max_offset
+        lat_min = ZERO_ZERO[0] - lat_min_offset
+        lat_max = ZERO_ZERO[0] - lat_max_offset
         lng_min = ZERO_ZERO[1] - lng_min_offset
         lng_max = ZERO_ZERO[1] - lng_max_offset
     except Exception as ex:
         fail('Failed to get GPS bounds from center + FOV: ' + str(ex))
-    return (lat_min, lat_max, lng_max, lng_min)
+    return (lat_max, lat_min, lng_max, lng_min)
+
+# Scanalyzer -> MAC formular @ https://terraref.gitbooks.io/terraref-documentation/content/user/geospatial-information.html
+# Mx = ax + bx * Gx + cx * Gy
+# My = ay + by * Gx + cy * Gy
+def get_bounding_box_with_formula(center_position, fov):
+    
+    y_w = center_position[1] + fov[1]/2
+    y_e = center_position[1] - fov[1]/2
+    x_n = center_position[0] + fov[0]/2
+    x_s = center_position[0] - fov[0]/2
+    
+    Mx_nw = ax + bx * x_n + cx * y_w
+    My_nw = ay + by * x_n + cy * y_w
+    
+    Mx_se = ax + bx * x_s + cx * y_e
+    My_se = ay + by * x_s + cy * y_e
+    
+    fov_nw_latlon = utm.to_latlon(Mx_nw, My_nw, SE_utm[2],SE_utm[3])
+    fov_se_latlon = utm.to_latlon(Mx_se, My_se, SE_utm[2],SE_utm[3])
+    
+    return (fov_se_latlon[0] - lat_shift, fov_nw_latlon[0] - lat_shift, fov_nw_latlon[1] + lon_shift, fov_se_latlon[1] + lon_shift)
 
 def parse_metadata(metadata):
     
@@ -365,16 +427,25 @@ def parse_metadata(metadata):
         else:
             cam_z = 0
 
-        position = [float(gantry_x), float(gantry_y), float(gantry_z)]
-        center_position = [position[0]+float(cam_x), position[1]+float(cam_y), position[2]+float(cam_z)]
-        fov = [float(fov_x), float(fov_y)]
-
-        return center_position, scan_time, fov
-
     except KeyError as err:
         fail('Metadata file missing key: ' + err.args[0])
-        return None, None, None
+        
+    position = [float(gantry_x), float(gantry_y), float(gantry_z)]
+    center_position = [position[0]+float(cam_x), position[1]+float(cam_y), position[2]+float(cam_z)]
+    fov = [float(fov_x), float(fov_y)]
+    
+    return center_position, scan_time, fov
 
+def get_new_fov(camHeight, fov):
+    fov_x = fov[0]
+    fov_y = fov[1]
+        
+    HEIGHT_MAGIC_NUMBER = 1.0
+    camH_fix = camHeight + HEIGHT_MAGIC_NUMBER
+    fix_fov_x = fov_x*(camH_fix/2)
+    fix_fov_y = fov_y*(camH_fix/2)
+        
+    return (fix_fov_x, fix_fov_y)
     
 def lower_keys(in_dict):
     if type(in_dict) is dict:
@@ -411,6 +482,93 @@ def find_files(in_dir):
     
     return jsons[0], bins[0]
 
+def createVrt(base_dir,tif_file_list):
+    # Create virtual tif for the files in this folder
+    # Build a virtual TIF that combines all of the tifs that we just created
+    print "\tCreating virtual TIF..."
+    try:
+        vrtPath = os.path.join(base_dir,'virtualTif.vrt')
+        cmd = 'gdalbuildvrt -srcnodata "-99 -99 -99" -overwrite -input_file_list ' + tif_file_list +' ' + vrtPath
+        os.system(cmd)
+    except Exception as ex:
+        fail("\tFailed to create virtual tif: " + str(ex))
+
+def createMapTiles(base_dir,NUM_THREADS):
+    # Create map tiles from the virtual tif
+    # For now, just creating w/ local coordinate system. In the future, can make these actually georeferenced.
+    print "\tCreating map tiles..."
+    try:
+        vrtPath = os.path.join(base_dir,'virtualTif.vrt')
+        cmd = 'python gdal2tiles_parallel.py --processes=' + str(NUM_THREADS) + ' -l -n -e -f JPEG -z "18-26" -s EPSG:4326 ' + vrtPath + ' ' + os.path.join(base_dir,TILE_FOLDER_NAME)
+        os.system(cmd)
+    except Exception as ex:
+        fail("Failed to generate map tiles: " + str(ex))
+
+def generate_googlemaps(base_dir):
+        args = os.path.join(base_dir, TILE_FOLDER_NAME)
+
+        s = """
+            <!DOCTYPE html>
+                <html>
+                  <head>
+                    <title>Map Create By Left Sensor</title>
+                    <meta name="viewport" content="initial-scale=1.0">
+                    <meta charset="utf-8">
+                    <style>
+                      html, body {
+                        height: 100%%;
+                        margin: 0;
+                        padding: 0;
+                      }
+                      #map {
+                        height: 100%%;
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div id="map"></div>
+                    <script>
+                      function initMap() {
+                          var MyCenter = new google.maps.LatLng(33.0726220351,-111.974918861);
+                  var map = new google.maps.Map(document.getElementById('map'), {
+                    center: MyCenter,
+                    zoom: 18,
+                    streetViewControl: false,
+                    mapTypeControlOptions: {
+                      mapTypeIds: ['Terra']
+                    }
+                  });
+                  
+                
+                
+                  var terraMapType = new google.maps.ImageMapType({
+                    getTileUrl: function(coord, zoom) {
+                        var bound = Math.pow(2, zoom);
+                        var y = bound-coord.y-1;
+                       return '%s' +'/' + zoom + '/' + coord.x + '/' + y + '.jpg';
+                    },
+                    tileSize: new google.maps.Size(256, 256),
+                    maxZoom: 28,
+                    minZoom: 18,
+                    radius: 1738000,
+                    name: 'Terra'
+                  });
+                  
+                  map.mapTypes.set('Terra', terraMapType);
+                  map.setMapTypeId('Terra');
+                }
+                
+                    </script>
+                    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDJW9xwkAN3sfZE4FvGGLcgufJO9oInIHk&callback=initMap"async defer></script>
+                  </body>
+                </html>
+            """ % args
+        
+        f = open(os.path.join(base_dir, 'opengooglemaps.html'), 'w')
+        f.write(s)
+        f.close()
+
+        return s
 
 def fail(reason):
     print >> sys.stderr, reason
