@@ -170,7 +170,8 @@ class FlirBin2JpgTiff(Extractor):
         pyclowder.datasets.upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         endtime = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        terrautils.extractors.log_to_influxdb(self.extractor_info['name'], starttime, endtime, created, bytes)
+        terrautils.extractors.log_to_influxdb(self.extractor_info['name'], self.influx_params,
+                                              starttime, endtime, created, bytes)
 
 if __name__ == "__main__":
     extractor = FlirBin2JpgTiff()
