@@ -34,6 +34,8 @@ class FlirBin2JpgTiff(Extractor):
                                  help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
+        self.parser.add_argument('--scale', dest="scale_values", type=bool, nargs='?', default=True,
+                                 help="scale individual flir images based on px range as opposed to full field stitch")
         self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
                                  default=influx_host, help="InfluxDB URL for logging")
         self.parser.add_argument('--influxPort', dest="influx_port", type=int, nargs='?',
@@ -55,6 +57,7 @@ class FlirBin2JpgTiff(Extractor):
         # assign other arguments
         self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
+        self.scale_values = self.scale_values
         self.influx_params = {
             "host": self.args.influx_host,
             "port": self.args.influx_port,
@@ -139,7 +142,7 @@ class FlirBin2JpgTiff(Extractor):
             logging.info("...creating PNG image")
             # get raw data from bin file
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
-            terrautils.extractors.create_image(raw_data, png_path, True)
+            terrautils.extractors.create_image(raw_data, png_path, self.scale_values)
             # Only upload the newly generated file to Clowder if it isn't already in dataset
             if png_path not in resource["local_paths"]:
                 fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
