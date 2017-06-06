@@ -139,7 +139,7 @@ class FlirBin2JpgTiff(Extractor):
             logging.info("...creating PNG image")
             # get raw data from bin file
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
-            terrautils.extractors.create_png(raw_data, png_path, True)
+            terrautils.extractors.create_image(raw_data, png_path, True)
             # Only upload the newly generated file to Clowder if it isn't already in dataset
             if png_path not in resource["local_paths"]:
                 fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)

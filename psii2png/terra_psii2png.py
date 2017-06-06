@@ -162,7 +162,7 @@ class PSIIBin2Png(Extractor):
             if not os.path.exists(png_path) or self.force_overwrite:
                 logging.info("...generating and uploading %s" % png_path)
                 pixels = numpy.fromfile(frames[ind], numpy.dtype('uint8')).reshape([img_height, img_width])
-                terrautils.extractors.create_png(pixels, png_path)
+                terrautils.extractors.create_image(pixels, png_path)
                 if png_path not in resource['local_paths']:
                     fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
                     uploaded_file_ids.append(fileid)
