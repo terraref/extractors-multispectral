@@ -63,7 +63,7 @@ class PSIIBin2Png(Extractor):
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # Check for 0000-0101 bin files before beginning processing
-        if len(resource['files']) < 103:
+        if len(resource['files']) < 102:
             return CheckMessage.ignore
         if not terrautils.extractors.is_latest_file(resource):
             return CheckMessage.ignore
