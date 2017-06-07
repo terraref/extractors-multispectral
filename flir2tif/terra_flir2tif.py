@@ -159,7 +159,7 @@ class FlirBin2JpgTiff(Extractor):
             logging.info("...creating TIFF image")
             # Rename temporary tif after creation to avoid long path errors
             out_tmp_tiff = "/home/extractor/"+resource['dataset_info']['name']+".tif"
-            terrautils.extractors.create_geotiff(tc, gps_bounds, out_tmp_tiff, None)
+            terrautils.extractors.create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True)
             shutil.move(out_tmp_tiff, tiff_path)
             if tiff_path not in resource["local_paths"]:
                 fileid = pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)

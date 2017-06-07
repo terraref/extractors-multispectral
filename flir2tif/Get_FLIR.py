@@ -215,7 +215,7 @@ def create_geotiff_with_temperature(np_arr, temp_arr, gps_bounds, out_file_path)
         yres = (gps_bounds[1] - gps_bounds[0])/float(nrows)
         geotransform = (gps_bounds[2],xres,0,gps_bounds[1],0,-yres) #(top left x, w-e pixel resolution, rotation (0 if North is up), top left y, rotation (0 if North is up), n-s pixel resolution)
 
-        output_raster = gdal.GetDriverByName('GTiff').Create(out_file_path, ncols, nrows, 1, gdal.GDT_Byte)
+        output_raster = gdal.GetDriverByName('GTiff').Create(out_file_path, ncols, nrows, 1, gdal.GDT_Float32)
 
         output_raster.SetGeoTransform(geotransform) # specify coordinates
         srs = osr.SpatialReference() # establish coordinate encoding
