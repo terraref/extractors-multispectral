@@ -57,7 +57,7 @@ class FlirBin2JpgTiff(Extractor):
         # assign other arguments
         self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
-        self.scale_values = self.scale_values
+        self.scale_values = self.args.scale_values
         self.influx_params = {
             "host": self.args.influx_host,
             "port": self.args.influx_port,
