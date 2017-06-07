@@ -138,6 +138,7 @@ class FlirBin2JpgTiff(Extractor):
         tiff_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_name, 'tif'))
         uploaded_file_ids = []
 
+        skipped_png = False
         if not os.path.exists(png_path) or self.force_overwrite:
             logging.info("...creating PNG image")
             # get raw data from bin file
@@ -149,11 +150,15 @@ class FlirBin2JpgTiff(Extractor):
                 uploaded_file_ids.append(fileid)
             created += 1
             bytes += os.path.getsize(png_path)
+        else:
+            skipped_png = True
 
         if not os.path.exists(tiff_path) or self.force_overwrite:
             logging.info("...getting information from json file for geoTIFF")
             scan_time = terrautils.extractors.calculate_scan_time(metadata)
             gps_bounds = terrautils.extractors.calculate_gps_bounds(metadata, "flirIrCamera")
+            if skipped_png:
+                raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
             tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
 
             logging.info("...creating TIFF image")
