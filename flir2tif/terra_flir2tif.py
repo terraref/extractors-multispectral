@@ -143,6 +143,7 @@ class FlirBin2JpgTiff(Extractor):
             logging.info("...creating PNG image")
             # get raw data from bin file
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
+            raw_data = numpy.rot90(raw_data, 3)
             terrautils.extractors.create_image(raw_data, png_path, self.scale_values)
             # Only upload the newly generated file to Clowder if it isn't already in dataset
             if png_path not in resource["local_paths"]:
@@ -159,6 +160,7 @@ class FlirBin2JpgTiff(Extractor):
             gps_bounds = terrautils.extractors.calculate_gps_bounds(metadata, "flirIrCamera")
             if skipped_png:
                 raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
+                raw_data = numpy.rot90(raw_data, 3)
             tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
 
             logging.info("...creating TIFF image")
