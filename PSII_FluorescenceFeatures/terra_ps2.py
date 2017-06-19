@@ -82,9 +82,9 @@ class heightmap(Extractor):
 	out_split = out_dir.split(os.sep)
 	out_dir= replace_right(out_dir,out_split[-2],"",1)
 	out_dir= replace_right(out_dir,"/","",1)
-        out_name = ""
+        out_name = "outputname"
         out_jpg = os.path.join(out_dir, out_name+".jpg")
-
+	out_dir_light= out_dir
 
 
         subprocess.call(['git clone https://github.com/solmazhajmohammadi/PSII.git '], shell=True)
@@ -92,10 +92,9 @@ class heightmap(Extractor):
 	subprocess.call(['cp -rT /home/extractor/PSII .'], shell= True)
 	subprocess.call(['chmod 777 PSII.m'], shell=True)
         #subprocess.call(['octave pkg install -forge image'],shell=True)
-        subprocess.call(["octave --eval \"PSII(\'%s\',\'%s\')\"" % (out_dir, out_dir)],shell=True);
+        subprocess.call(["octave --eval \"PSII(\'%s\',\'%s\' ,\'%s\')\"" % (out_dir, out_dir_light,out_name)],shell=True);
 
-	print("is it \n")
-	print(os.path.isfile(out_name +"_Fm_dark.jpg"))
+	
         if os.path.isfile(out_name +"_Fm_dark.jpg"):
 	    logging.info("uploading %s to dataset" % out_jpg)
 	    pyclowder.files.upload_to_dataset(connector, host, secret_key, resource['id'], out_name+"_Fm_dark.jpg")
