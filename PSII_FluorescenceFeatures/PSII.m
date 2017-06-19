@@ -28,7 +28,7 @@ function PSII(path_dark, path_light, outputfilename)
 % Rfd            -  1936-by-1216        double  ratio of chlorophyll decrease to steady state Chlorophyll
 
 pkg image load
-outputfilename=''
+%outputfilename=''
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% load dark adapted PSII data %%%%%%%%%%%%%%%
 D=dir(path_dark);
