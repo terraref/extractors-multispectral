@@ -1,0 +1,18 @@
+{
+    "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
+    "name": "terra.heightmap",
+    "version": "2.0",
+    "description": "PSII extractor",
+    "author": "Solmaz Hajmohammadi <solmaz.hajmohammadi@lemnatec.de>",
+    "contributors": [],
+    "contexts": [],
+    "repository": {"repType": "git", "repUrl": "https://github.com/terraref"},
+    "process": {
+        "dataset": [
+            "file.added"
+        ]
+    },
+    "external_services": [],
+    "dependencies": [],
+    "bibtex": []
+}
