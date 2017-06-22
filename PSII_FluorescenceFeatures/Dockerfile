@@ -19,7 +19,7 @@ RUN useradd -u 1000 extractor \
 RUN apt-get update
 RUN apt-get install -y octave
 RUN apt-get install -y octave-pkg-dev
-Run apt-get install -y aptitude
+RUN apt-get install -y aptitude
 RUN aptitude install -y $(aptitude search ?description\(octave-forge\) | awk '{print $2}')
 RUN apt-get install -y $( apt-cache search octave-forge | awk '{printf $1; printf " "}' )
 
