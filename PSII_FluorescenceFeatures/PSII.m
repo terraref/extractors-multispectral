@@ -1,3 +1,4 @@
+
 function PSII(path_dark, path_light, outputfilename)
 
 % This script computes all characterisitc fluorescence features for
@@ -215,38 +216,38 @@ Rfd= (Fm_dark./Fm_light-1).*Fmask_light;
 
 
 out(:,:,1)=Fm_dark;
-image_name = [outputfilename '_Fm_dark.jpg'];
-imwrite(Fm_dark,image_name,'jpg');
+image_name = [outputfilename '_Fm_dark.png'];
+imwrite(Fm_dark,image_name,'png');
 out(:,:,2)=Fv_dark;
-image_name = [outputfilename '_Fv_dark.jpg'];
-imwrite(Fv_dark,image_name,'jpg');
+image_name = [outputfilename '_Fv_dark.png'];
+imwrite(Fv_dark,image_name,'png');
 out(:,:,3)=FvFm_dark;
-image_name = [outputfilename '_FvFm_dark.jpg'];
-imwrite(FvFm_dark,image_name,'jpg');
+image_name = [outputfilename '_FvFm_dark.png'];
+imwrite(FvFm_dark,image_name,'png');
 out(:,:,4)=Fm_light;
-image_name = [outputfilename '_Fm_light.jpg'];
-imwrite(Fm_light,image_name,'jpg');
+image_name = [outputfilename '_Fm_light.png'];
+imwrite(Fm_light,image_name,'png');
 out(:,:,5)=Fv_light;
-image_name = [outputfilename '_Fv_light.jpg'];
-imwrite(Fv_light,image_name,'jpg');
+image_name = [outputfilename '_Fv_light.png'];
+imwrite(Fv_light,image_name,'png');
 out(:,:,6)=FvFm_light;
-image_name = [outputfilename '_FvFm_light.jpg'];
-imwrite(FvFm_light,image_name,'jpg');
+image_name = [outputfilename '_FvFm_light.png'];
+imwrite(FvFm_light,image_name,'png');
 out(:,:,7)=Phi_PSII;
-image_name = [outputfilename '_Phi_PSII.jpg'];
-imwrite(Phi_PSII,image_name,'jpg');
+image_name = [outputfilename '_Phi_PSII.png'];
+imwrite(Phi_PSII,image_name,'png');
 out(:,:,8)=NPQ;
-image_name = [outputfilename '_NPQ.jpg'];
-imwrite(NPQ,image_name,'jpg');
+image_name = [outputfilename '_NPQ.png'];
+imwrite(NPQ,image_name,'png');
 out(:,:,9)=qN;
-image_name = [outputfilename '_qN.jpg'];
-imwrite(qN,image_name,'jpg');
+image_name = [outputfilename '_qN.png'];
+imwrite(qN,image_name,'png');
 out(:,:,10)=qP;
-image_name = [outputfilename '_qP.jpg'];
-imwrite(qP,image_name,'jpg');
+image_name = [outputfilename '_qP.png'];
+imwrite(qP,image_name,'png');
 out(:,:,11)=Rfd;
-image_name = [outputfilename '_Rfd.jpg'];
-imwrite(Rfd,image_name,'jpg');
+image_name = [outputfilename '_Rfd.png'];
+imwrite(Rfd,image_name,'png');
 
 end
 
