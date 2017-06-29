@@ -27,8 +27,6 @@ class FlirBin2JpgTiff(Extractor):
         influx_pass = os.getenv("INFLUXDB_PASSWORD", "")
 
         # add any additional arguments to parser
-        # self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
-        #                          help='maximum number (default=-1)')
         self.parser.add_argument('--output', '-o', dest="output_dir", type=str, nargs='?',
                                  default="/home/extractor/sites/ua-mac/Level_1/flir2tif",
                                  help="root directory where timestamp & output directories will be created")

@@ -1,8 +1,8 @@
 {
     "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
-    "name": "terra.heightmap",
-    "version": "2.0",
-    "description": "PSII extractor",
+    "name": "terra.multispectral.ps2fluorescence",
+    "version": "1.0",
+    "description": "PSII fluorescence features",
     "author": "Solmaz Hajmohammadi <solmaz.hajmohammadi@lemnatec.de>",
     "contributors": [],
     "contexts": [],
