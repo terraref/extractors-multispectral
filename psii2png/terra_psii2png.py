@@ -10,6 +10,7 @@ from pyclowder.extractors import Extractor
 from pyclowder.utils import CheckMessage
 import pyclowder.datasets
 import terrautils.extractors
+import terrautils.metadata
 
 import PSII_analysis as psiiCore
 
@@ -25,11 +26,6 @@ class PSIIBin2Png(Extractor):
         influx_pass = os.getenv("INFLUXDB_PASSWORD", "")
 
         # add any additional arguments to parser
-        # self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
-        #                          help='maximum number (default=-1)')
-        self.parser.add_argument('--output', '-o', dest="output_dir", type=str, nargs='?',
-                                 default="/home/extractor/sites/ua-mac/Level_1/ps2_png",
-                                 help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
         self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
@@ -51,7 +47,6 @@ class PSIIBin2Png(Extractor):
         logging.getLogger('__main__').setLevel(logging.DEBUG)
 
         # assign other arguments
-        self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
         self.influx_params = {
             "host": self.args.influx_host,
@@ -68,11 +63,10 @@ class PSIIBin2Png(Extractor):
         if not terrautils.extractors.is_latest_file(resource):
             return CheckMessage.ignore
 
-        out_dir = terrautils.extractors.get_output_directory(self.output_dir, resource['dataset_info']['name'])
-        hist_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(
-                resource['dataset_info']['name'], 'png', opts=['combined_hist']))
-        coloredImg_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(
-                resource['dataset_info']['name'], 'png', opts=['combined_pseudocolored']))
+        hist_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                "ps2_png", 'png', opts=['combined_hist'])
+        coloredImg_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                  "ps2_png", 'png', opts=['combined_pseudocolored'])
 
         # Count number of bin files in dataset, as well as number of existing outputs
         ind_add = 0
@@ -82,8 +76,8 @@ class PSIIBin2Png(Extractor):
             for f in resource['files']:
                 if f['filename'].endswith(format_ind+'.bin'):
                     ind_add += 1
-                    out_png = os.path.join(out_dir, terrautils.extractors.get_output_filename(
-                            resource['dataset_info']['name'], 'png', opts=[format_ind]))
+                    out_png = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                            "ps2_png", 'png', opts=[format_ind])
                     if os.path.exists(out_png) and not self.force_overwrite:
                         ind_output += 1
                     break
@@ -97,17 +91,11 @@ class PSIIBin2Png(Extractor):
             return CheckMessage.ignore
 
         md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['id'])
-        found_md = False
-        if len(md) > 0:
-            for m in md:
-                # Check if this extractor has already been processed
-                if 'agent' in m and 'name' in m['agent']:
-                    if m['agent']['name'].find(self.extractor_info['name']) > -1 and not self.force_overwrite:
-                        logging.info("skipping dataset %s, found existing metadata" % resource['id'])
-                        return CheckMessage.ignore
-                if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
-                    found_md = True
-        if found_md:
+        if terrautils.metadata.get_extractor_metadata(md, self.extractor_info['name']) and not self.force_overwrite:
+            logging.info("skipping dataset %s, found existing metadata" % resource['id'])
+            return CheckMessage.ignore
+
+        if terrautils.metadata.get_terraref_metadata(md):
             return CheckMessage.download
 
         return CheckMessage.ignore
@@ -123,9 +111,7 @@ class PSIIBin2Png(Extractor):
             # First check metadata attached to dataset in Clowder for item of interest
             if f.endswith('_dataset_metadata.json'):
                 all_dsmd = terrautils.extractors.load_json_file(f)
-                for curr_dsmd in all_dsmd:
-                    if 'content' in curr_dsmd and 'lemnatec_measurement_metadata' in curr_dsmd['content']:
-                        metadata = curr_dsmd['content']
+                metadata = terrautils.metadata.get_extractor_metadata(all_dsmd)
             # Otherwise, check if metadata was uploaded as a .json file
             elif f.endswith('_metadata.json') and f.find('/_metadata.json') == -1 and metadata is None:
                 metadata = terrautils.extractors.load_json_file(f)
@@ -140,14 +126,13 @@ class PSIIBin2Png(Extractor):
             return
 
         # Determine output directory
-        out_dir = terrautils.extractors.get_output_directory(self.output_dir, resource['dataset_info']['name'])
-        logging.info("...output directory: %s" % out_dir)
+        hist_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                  "ps2_png", 'png', opts=['combined_hist'])
+        coloredImg_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                        "ps2_png", 'png', opts=['combined_pseudocolored'])
+        out_dir = os.path.dirname(hist_path)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        hist_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(
-                resource['dataset_info']['name'], 'png', opts=['combined_hist']))
-        coloredImg_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(
-                resource['dataset_info']['name'], 'png', opts=['combined_pseudocolored']))
         uploaded_file_ids = []
 
         img_width = 1936
@@ -156,8 +141,8 @@ class PSIIBin2Png(Extractor):
         # skip 0101.bin since 101 is an XML file that lists the frame times
         for ind in range(0, 101):
             format_ind = "{0:0>4}".format(ind) # e.g. 1 becomes 0001
-            png_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(
-                    resource['dataset_info']['name'], 'png', opts=[format_ind]))
+            png_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                       "ps2_png", 'png', opts=[format_ind])
             png_frames[ind] = png_path
             if not os.path.exists(png_path) or self.force_overwrite:
                 logging.info("...generating and uploading %s" % png_path)
