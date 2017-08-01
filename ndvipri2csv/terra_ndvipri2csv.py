@@ -14,6 +14,8 @@ from pyclowder.utils import CheckMessage
 import pyclowder.files
 import pyclowder.datasets
 import terrautils.extractors
+import terrautils.sensors
+import terrautils.metadata
 
 
 class BinValues2Csv(Extractor):

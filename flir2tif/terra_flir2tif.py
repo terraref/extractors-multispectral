@@ -4,7 +4,6 @@ import os
 import logging
 import shutil
 import datetime
-
 import numpy
 
 from pyclowder.extractors import Extractor
@@ -12,6 +11,8 @@ from pyclowder.utils import CheckMessage
 import pyclowder.files
 import pyclowder.datasets
 import terrautils.extractors
+import terrautils.sensors
+import terrautils.metadata
 
 import Get_FLIR as getFlir
 

@@ -11,6 +11,8 @@ from pyclowder.utils import CheckMessage
 import pyclowder.datasets
 import terrautils.extractors
 import terrautils.metadata
+import terrautils.sensors
+import terrautils.metadata
 
 import PSII_analysis as psiiCore
 
