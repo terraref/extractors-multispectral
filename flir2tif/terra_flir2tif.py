@@ -27,9 +27,6 @@ class FlirBin2JpgTiff(Extractor):
         influx_pass = os.getenv("INFLUXDB_PASSWORD", "")
 
         # add any additional arguments to parser
-        self.parser.add_argument('--output', '-o', dest="output_dir", type=str, nargs='?',
-                                 default="/home/extractor/sites/ua-mac/Level_1/flir2tif",
-                                 help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
         self.parser.add_argument('--scale', dest="scale_values", type=bool, nargs='?', default=True,
@@ -53,7 +50,6 @@ class FlirBin2JpgTiff(Extractor):
         logging.getLogger('__main__').setLevel(logging.DEBUG)
 
         # assign other arguments
-        self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
         self.scale_values = self.args.scale_values
         self.influx_params = {
@@ -79,9 +75,10 @@ class FlirBin2JpgTiff(Extractor):
 
         if found_ir:
             # Check if outputs already exist
-            out_dir = terrautils.extractors.get_output_directory(self.output_dir, resource['dataset_info']['name'])
-            png_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(resource['dataset_info']['name'], 'png'))
-            tiff_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(resource['dataset_info']['name'], 'tif'))
+            png_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                     "flir2tif", 'png')
+            tiff_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                     "flir2tif", 'tif')
             if os.path.exists(png_path) and os.path.exists(tiff_path) and not self.force_overwrite:
                 logging.info("skipping dataset %s, outputs already exist" % resource['id'])
                 return CheckMessage.ignore
@@ -89,16 +86,13 @@ class FlirBin2JpgTiff(Extractor):
             # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
             if not found_md:
                 md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['id'])
-                for m in md:
-                    # Check if this extractor has already been processed
-                    if 'agent' in m and 'name' in m['agent']:
-                        if m['agent']['name'].find(self.extractor_info['name']) > -1:
-                            logging.info("skipping dataset %s, already processed" % resource['id'])
-                            return CheckMessage.ignore
-                    if 'content' in m and 'lemnatec_measurement_metadata' in m['content']:
-                        found_md = True
-
-            if found_md:
+                if terrautils.metadata.get_extractor_metadata(md, self.extractor_info['name']) and not self.force_overwrite:
+                    logging.info("skipping dataset %s, already processed" % resource['id'])
+                    return CheckMessage.ignore
+                if terrautils.metadata.get_terraref_metadata(md):
+                    return CheckMessage.download
+                return CheckMessage.ignore
+            else:
                 return CheckMessage.download
 
         return CheckMessage.ignore
@@ -114,9 +108,7 @@ class FlirBin2JpgTiff(Extractor):
             # First check metadata attached to dataset in Clowder for item of interest
             if f.endswith('_dataset_metadata.json'):
                 all_dsmd = terrautils.extractors.load_json_file(f)
-                for curr_dsmd in all_dsmd:
-                    if 'content' in curr_dsmd and 'lemnatec_measurement_metadata' in curr_dsmd['content']:
-                        metadata = curr_dsmd['content']
+                metadata = terrautils.metadata.get_extractor_metadata(all_dsmd)
             # Otherwise, check if metadata was uploaded as a .json file
             elif f.endswith('_metadata.json') and f.find('/_metadata.json') == -1 and metadata is None:
                 metadata = terrautils.extractors.load_json_file(f)
@@ -127,13 +119,14 @@ class FlirBin2JpgTiff(Extractor):
             return
 
         # Determine output directory
-        ds_name = resource['dataset_info']['name']
-        out_dir = terrautils.extractors.get_output_directory(self.output_dir, ds_name)
+        png_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                 "flir2tif", 'png')
+        tiff_path = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                  "flir2tif", 'tif')
+        out_dir = os.path.dirname(png_path)
         logging.info("...writing outputs to: %s" % out_dir)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        png_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_name, 'png'))
-        tiff_path = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_name, 'tif'))
         uploaded_file_ids = []
 
         skipped_png = False
