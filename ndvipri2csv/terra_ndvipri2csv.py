@@ -27,11 +27,6 @@ class BinValues2Csv(Extractor):
         influx_pass = os.getenv("INFLUXDB_PASSWORD", "")
 
         # add any additional arguments to parser
-        # self.parser.add_argument('--max', '-m', type=int, nargs='?', default=-1,
-        #                          help='maximum number (default=-1)')
-        self.parser.add_argument('--output', '-o', dest="output_dir", type=str, nargs='?',
-                                 default="/home/extractor/sites/ua-mac/Level_1/bin2csv",
-                                 help="root directory where timestamp & output directories will be created")
         self.parser.add_argument('--overwrite', dest="force_overwrite", type=bool, nargs='?', default=False,
                                  help="whether to overwrite output file if it already exists in output directory")
         self.parser.add_argument('--influxHost', dest="influx_host", type=str, nargs='?',
@@ -53,7 +48,6 @@ class BinValues2Csv(Extractor):
         logging.getLogger('__main__').setLevel(logging.DEBUG)
 
         # assign other arguments
-        self.output_dir = self.args.output_dir
         self.force_overwrite = self.args.force_overwrite
         self.influx_params = {
             "host": self.args.influx_host,
@@ -66,20 +60,17 @@ class BinValues2Csv(Extractor):
     def check_message(self, connector, host, secret_key, resource, parameters):
         # First, check if we have the correct sensor type
         md = pyclowder.datasets.download_metadata(connector, host, secret_key, resource['parent']['id'])
-        # TODO: Replace this with call to terrautils once available
+        # TODO: Replace this will better metadata references
         sensortype = self.determineSensorType(md)
         if sensortype in ["ndvi", "pri"]:
-            for m in md:
-                # Check if this extractor has already been processed
-                if 'agent' in m and 'name' in m['agent']:
-                    if m['agent']['name'].find(self.extractor_info['name']) > -1:
-                        logging.info("skipping dataset %s, already processed" % resource['id'])
-                        return CheckMessage.ignore
+            if terrautils.metadata.get_extractor_metadata(md, self.extractor_info['name']) and not self.force_overwrite:
+                logging.info("skipping dataset %s, already processed" % resource['id'])
+                return CheckMessage.ignore
 
             # Check if output already exists
             ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
-            out_dir = terrautils.extractors.get_output_directory(self.output_dir, ds_info['name'], True)
-            out_file = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_info['name'], 'csv', opts=['extracted_values']))
+            out_file = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", ds_info['name'],
+                                                                     "bin2csv", 'csv', opts=['extracted_values'])
             if os.path.isfile(out_file) and not self.force_overwrite:
                 logging.info("skipping %s, outputs already exist" % resource['id'])
                 return CheckMessage.ignore
@@ -97,8 +88,11 @@ class BinValues2Csv(Extractor):
 
         # Determine output file path
         ds_info = pyclowder.datasets.get_info(connector, host, secret_key, resource['parent']['id'])
-        out_dir = terrautils.extractors.get_output_directory(self.output_dir, ds_info['name'], True)
-        out_file = os.path.join(out_dir, terrautils.extractors.get_output_filename(ds_info['name'], 'csv', opts=['extracted_values']))
+        out_file = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", ds_info['name'],
+                                                                 "bin2csv", 'csv', opts=['extracted_values'])
+        out_dir = os.path.getdir(out_file)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
         uploaded_file_ids = []
 
         # Extract NDVI values
