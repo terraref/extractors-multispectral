@@ -91,11 +91,12 @@ class PSIIFluorescenceFeatures(Extractor):
                 input_dir_light = input_dir
 
         # Determine output directory
-        out_dir = terrautils.extractors.get_output_directory(self.output_dir, resource['dataset_info']['name'])
+        out_name_base = terrautils.sensors.get_sensor_path_by_dataset("ua-mac", "Level_1", resource['dataset_info']['name'],
+                                                                "ps2_fluorescence")
+        out_dir = os.path.dirname(out_name_base)
         logging.info("...writing outputs to: %s" % out_dir)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        out_name_base = terrautils.extractors.get_output_filename(resource['dataset_info']['name'])
         uploaded_file_ids = []
 
         #subprocess.call(['git clone https://github.com/solmazhajmohammadi/PSII.git '], shell=True)
