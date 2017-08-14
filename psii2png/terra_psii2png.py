@@ -54,7 +54,7 @@ class PSIIBin2Png(TerrarefExtractor):
             return CheckMessage.ignore
 
         md = download_metadata(connector, host, secret_key, resource['id'])
-        if get_extractor_metadata(md, self.extractor_info['name']) and not self.force_overwrite:
+        if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
             logging.info("skipping dataset %s, found existing metadata" % resource['id'])
             return CheckMessage.ignore
 
@@ -104,7 +104,7 @@ class PSIIBin2Png(TerrarefExtractor):
             format_ind = "{0:0>4}".format(ind) # e.g. 1 becomes 0001
             png_path = self.sensors.create_sensor_path(timestamp, opts=[format_ind])
             png_frames[ind] = png_path
-            if not os.path.exists(png_path) or self.force_overwrite:
+            if not os.path.exists(png_path) or self.overwrite:
                 logging.info("...generating and uploading %s" % png_path)
                 pixels = numpy.fromfile(frames[ind], numpy.dtype('uint8')).reshape([img_height, img_width])
                 create_image(pixels, png_path)
@@ -116,7 +116,7 @@ class PSIIBin2Png(TerrarefExtractor):
 
         # Generate aggregate outputs
         logging.info("...generating aggregates")
-        if not (os.path.exists(hist_path) and os.path.exists(coloredImg_path)) or self.force_overwrite:
+        if not (os.path.exists(hist_path) and os.path.exists(coloredImg_path)) or self.overwrite:
             psiiCore.psii_analysis(png_frames, hist_path, coloredImg_path)
             self.created += 2
             self.bytes += os.path.getsize(hist_path)

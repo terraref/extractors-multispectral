@@ -52,14 +52,14 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             png_path = self.sensors.get_sensor_path(timestamp, ext='png')
             tiff_path = self.sensors.get_sensor_path(timestamp, ext='tif')
 
-            if os.path.exists(png_path) and os.path.exists(tiff_path) and not self.force_overwrite:
+            if os.path.exists(png_path) and os.path.exists(tiff_path) and not self.overwrite:
                 logging.info("skipping dataset %s, outputs already exist" % resource['id'])
                 return CheckMessage.ignore
 
             # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
             if not found_md:
                 md = download_metadata(connector, host, secret_key, resource['id'])
-                if get_extractor_metadata(md, self.extractor_info['name']) and not self.force_overwrite:
+                if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
                     logging.info("skipping dataset %s, already processed" % resource['id'])
                     return CheckMessage.ignore
                 if get_terraref_metadata(md):
@@ -100,7 +100,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
                                               timestamp[:10], leaf_ds_name=resource['dataset_info']['name'])
 
         skipped_png = False
-        if not os.path.exists(png_path) or self.force_overwrite:
+        if not os.path.exists(png_path) or self.overwrite:
             logging.info("...creating PNG image")
             # get raw data from bin file
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
@@ -115,7 +115,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         else:
             skipped_png = True
 
-        if not os.path.exists(tiff_path) or self.force_overwrite:
+        if not os.path.exists(tiff_path) or self.overwrite:
             logging.info("...getting information from json file for geoTIFF")
             scan_time = calculate_scan_time(metadata)
             gps_bounds = calculate_gps_bounds(metadata, "flirIrCamera")
