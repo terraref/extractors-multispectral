@@ -8,7 +8,7 @@ from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
 from pyclowder.datasets import download_metadata, upload_metadata
 from terrautils.extractors import TerrarefExtractor, is_latest_file, load_json_file, create_image, \
-    build_metadata
+    build_metadata, build_dataset_hierarchy
 from terraref.metadata import get_extractor_metadata, get_terraref_metadata
 
 import PSII_analysis as psiiCore
@@ -92,6 +92,10 @@ class PSIIBin2Png(TerrarefExtractor):
         coloredImg_path = self.sensors.create_sensor_path(timestamp, opts=['combined_pseudocolored'])
         uploaded_file_ids = []
 
+        target_dsid = build_dataset_hierarchy(connector, host, secret_key, self.clowderspace,
+                                          self.sensors.get_display_name(), timestamp[:4], timestamp[:7],
+                                          timestamp[:10], leaf_ds_name=resource['dataset_info']['name'])
+
         img_width = 1936
         img_height = 1216
         png_frames = {}
@@ -105,7 +109,7 @@ class PSIIBin2Png(TerrarefExtractor):
                 pixels = numpy.fromfile(frames[ind], numpy.dtype('uint8')).reshape([img_height, img_width])
                 create_image(pixels, png_path)
                 if png_path not in resource['local_paths']:
-                    fileid = upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+                    fileid = upload_to_dataset(connector, host, secret_key, target_dsid, png_path)
                     uploaded_file_ids.append(fileid)
                 self.created += 1
                 self.bytes += os.path.getsize(png_path)
@@ -118,14 +122,14 @@ class PSIIBin2Png(TerrarefExtractor):
             self.bytes += os.path.getsize(hist_path)
             self.bytes += os.path.getsize(coloredImg_path)
         if hist_path not in resource['local_paths']:
-            fileid = upload_to_dataset(connector, host, secret_key, resource['id'], hist_path)
+            fileid = upload_to_dataset(connector, host, secret_key, target_dsid, hist_path)
             uploaded_file_ids.append(fileid)
         if coloredImg_path not in resource['local_paths']:
-            fileid = upload_to_dataset(connector, host, secret_key, resource['id'], coloredImg_path)
+            fileid = upload_to_dataset(connector, host, secret_key, target_dsid, coloredImg_path)
             uploaded_file_ids.append(fileid)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        metadata = build_metadata(host, self.extractor_info['name'], resource['id'], {
+        metadata = build_metadata(host, self.extractor_info['name'], target_dsid, {
                                                             "files_created": uploaded_file_ids}, 'dataset')
         upload_metadata(connector, host, secret_key, resource['id'], metadata)
 

@@ -9,8 +9,9 @@ from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
 from pyclowder.datasets import download_metadata, upload_metadata
 from terrautils.metadata import get_extractor_metadata, get_terraref_metadata
-from terrautils.extractors import TerrarefExtractor, is_latest_file, calculate_scan_time, calculate_gps_bounds, \
-    create_geotiff, build_metadata, create_image, load_json_file
+from terrautils.extractors import TerrarefExtractor, is_latest_file, calculate_scan_time, \
+    calculate_gps_bounds, build_dataset_hierarchy, create_geotiff, build_metadata, \
+    create_image, load_json_file
 
 import Get_FLIR as getFlir
 
@@ -94,6 +95,10 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         tiff_path = self.sensors.create_sensor_path(timestamp, ext='tif')
         uploaded_file_ids = []
 
+        target_dsid = build_dataset_hierarchy(connector, host, secret_key, self.clowderspace,
+                                              self.sensors.get_display_name(), timestamp[:4], timestamp[:7],
+                                              timestamp[:10], leaf_ds_name=resource['dataset_info']['name'])
+
         skipped_png = False
         if not os.path.exists(png_path) or self.force_overwrite:
             logging.info("...creating PNG image")
@@ -103,7 +108,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             create_image(raw_data, png_path, self.scale_values)
             # Only upload the newly generated file to Clowder if it isn't already in dataset
             if png_path not in resource["local_paths"]:
-                fileid = upload_to_dataset(connector, host, secret_key, resource['id'], png_path)
+                fileid = upload_to_dataset(connector, host, secret_key, target_dsid, png_path)
                 uploaded_file_ids.append(fileid)
             self.created += 1
             self.bytes += os.path.getsize(png_path)
@@ -125,13 +130,13 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True)
             shutil.move(out_tmp_tiff, tiff_path)
             if tiff_path not in resource["local_paths"]:
-                fileid = upload_to_dataset(connector, host, secret_key, resource['id'], tiff_path)
+                fileid = upload_to_dataset(connector, host, secret_key, target_dsid, tiff_path)
                 uploaded_file_ids.append(fileid)
             self.created += 1
             self.bytes += os.path.getsize(tiff_path)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        metadata = build_metadata(host, self.extractor_info['name'], resource['id'], {
+        metadata = build_metadata(host, self.extractor_info['name'], target_dsid, {
             "files_created": uploaded_file_ids}, 'dataset')
         upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
