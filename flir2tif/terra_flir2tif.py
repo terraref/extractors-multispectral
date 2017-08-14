@@ -27,7 +27,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         add_local_arguments(self.parser)
 
         # parse command line and load default logging configuration
-        self.setup(sensor='flir2tif')
+        self.setup(sensor='ir_geotiff')
 
         # assign other arguments
         self.scale_values = self.args.scale_values
