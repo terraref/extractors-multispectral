@@ -41,7 +41,7 @@ class PSIIBin2Png(TerrarefExtractor):
                 if f['filename'].endswith(format_ind+'.bin'):
                     ind_add += 1
                     out_png = self.sensors.get_sensor_path(timestamp, opts=[format_ind])
-                    if os.path.exists(out_png) and not self.force_overwrite:
+                    if os.path.exists(out_png) and not self.overwrite:
                         ind_output += 1
                     break
 
