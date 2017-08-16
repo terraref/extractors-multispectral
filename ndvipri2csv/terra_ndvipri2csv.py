@@ -80,7 +80,7 @@ class BinValues2Csv(TerrarefExtractor):
             logging.info("%s already exists; skipping %s" % (out_file, resource['id']))
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        metadata = build_metadata(host, self.extractor_info['name'], target_dsid, {
+        metadata = build_metadata(host, self.extractor_info, target_dsid, {
             "files_created": uploaded_file_ids}, 'dataset')
         upload_metadata(connector, host, secret_key, target_dsid, metadata)
 

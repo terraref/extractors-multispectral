@@ -129,8 +129,8 @@ class PSIIBin2Png(TerrarefExtractor):
             uploaded_file_ids.append(fileid)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        metadata = build_metadata(host, self.extractor_info['name'], target_dsid, {
-                                                            "files_created": uploaded_file_ids}, 'dataset')
+        metadata = build_metadata(host, self.extractor_info, target_dsid, {
+                                  "files_created": uploaded_file_ids}, 'dataset')
         upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         self.end_message()
