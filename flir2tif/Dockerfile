@@ -6,7 +6,7 @@ MAINTAINER Max Burnette <mburnet2@illinois.edu>
 # Create user with necessary user ID for writing permissions on Roger
 RUN useradd -u 49044 extractor \
     && mkdir -p /home/extractor/sites/ua-mac/raw_data \
-    && mkdir -p /home/extractor/sites/ua-mac/Level_1/flir2tif \
+    && mkdir -p /home/extractor/sites/ua-mac/Level_1/ir_geotiff \
     && chown -R extractor /home/extractor
 
 # command to run when starting docker

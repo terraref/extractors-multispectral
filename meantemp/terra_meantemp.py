@@ -4,7 +4,7 @@ import numpy
 import json
 
 from pyclowder.utils import CheckMessage
-from pyclowder.datasets import download_metadata, upload_metadata
+from pyclowder.datasets import download_metadata, upload_metadata, get_info
 from terrautils.metadata import get_extractor_metadata, get_terraref_metadata
 from terrautils.extractors import TerrarefExtractor, is_latest_file, calculate_scan_time, \
     calculate_gps_bounds, build_dataset_hierarchy, create_geotiff, build_metadata, \
@@ -93,10 +93,13 @@ class FlirMeanTemp(TerrarefExtractor):
         for plotname in all_plots:
             bounds = all_plots[plotname]
 
-            # Use GeoJSON string to clip full field to this plot
-            (pxarray, geotrans) = clip_raster(resource['local_paths'][0], json.dumps(bounds))
-            tc = getFlir.rawData_to_temperature(pxarray, scan_time, terramd) # get temperature
-            mean_tc = numpy.mean(tc)
+            try:
+                # Use GeoJSON string to clip full field to this plot
+                (pxarray, geotrans) = clip_raster(resource['local_paths'][0], bounds)
+                tc = getFlir.rawData_to_temperature(pxarray, scan_time, terramd) # get temperature
+                mean_tc = numpy.mean(tc)
+            except:
+                continue
 
             # Create BETY-ready CSV
             (fields, traits) = get_traits_table()
@@ -107,7 +110,7 @@ class FlirMeanTemp(TerrarefExtractor):
             generate_csv(tmp_csv, fields, trait_list)
 
             # submit CSV to BETY
-            submit_traits(tmp_csv, self.bety_key)
+            #submit_traits(tmp_csv, self.bety_key)
 
             # Prepare and submit datapoint
             centroid = centroid_from_geojson(bounds)
