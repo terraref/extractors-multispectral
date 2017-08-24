@@ -67,7 +67,6 @@ class FlirBin2JpgTiff(TerrarefExtractor):
                 return CheckMessage.ignore
             else:
                 return CheckMessage.download
-
         return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
@@ -79,7 +78,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             # First check metadata attached to dataset in Clowder for item of interest
             if f.endswith('_dataset_metadata.json'):
                 all_dsmd = load_json_file(f)
-                metadata = get_extractor_metadata(all_dsmd, sensor='flirIrCamera')
+                metadata = get_terraref_metadata(all_dsmd, 'flirIrCamera')
             # Otherwise, check if metadata was uploaded as a .json file
             elif f.endswith('_ir.bin'):
                 bin_file = f
