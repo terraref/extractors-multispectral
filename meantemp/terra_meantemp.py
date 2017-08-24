@@ -86,18 +86,16 @@ class FlirMeanTemp(TerrarefExtractor):
         ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
         dsmd = download_metadata(connector, host, secret_key, resource['parent']['id'])
         terramd = get_terraref_metadata(dsmd, 'flirIrCamera')
+        scan_time = calculate_scan_time(terramd)
         timestamp = ds_info['name'].split(" - ")[1]
+
         all_plots = get_site_boundaries(timestamp, city='Maricopa')
-        # TODO: Get dataset metadata
-
-
         for plotname in all_plots:
             bounds = all_plots[plotname]
 
             # Use GeoJSON string to clip full field to this plot
             (pxarray, geotrans) = clip_raster(resource['local_paths'][0], json.dumps(bounds))
             tc = getFlir.rawData_to_temperature(pxarray, scan_time, terramd) # get temperature
-            # TODO: Get mean of tc after clipping by plot
             mean_tc = numpy.mean(tc)
 
             # Create BETY-ready CSV
