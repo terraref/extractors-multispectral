@@ -50,7 +50,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             # Check if outputs already exist
             timestamp = resource['dataset_info']['name'].split(" - ")[1]
             png_path = self.sensors.get_sensor_path(timestamp, ext='png')
-            tiff_path = self.sensors.get_sensor_path(timestamp, ext='tif')
+            tiff_path = self.sensors.get_sensor_path(timestamp)
 
             if os.path.exists(png_path) and os.path.exists(tiff_path) and not self.overwrite:
                 logging.info("skipping dataset %s, outputs already exist" % resource['id'])
@@ -79,10 +79,8 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             # First check metadata attached to dataset in Clowder for item of interest
             if f.endswith('_dataset_metadata.json'):
                 all_dsmd = load_json_file(f)
-                metadata = get_extractor_metadata(all_dsmd)
+                metadata = get_extractor_metadata(all_dsmd, sensor='flirIrCamera')
             # Otherwise, check if metadata was uploaded as a .json file
-            elif f.endswith('_metadata.json') and f.find('/_metadata.json') == -1 and metadata is None:
-                metadata = load_json_file(f)
             elif f.endswith('_ir.bin'):
                 bin_file = f
         if None in [bin_file, metadata]:
@@ -92,12 +90,13 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         # Determine output directory
         timestamp = resource['dataset_info']['name'].split(" - ")[1]
         png_path = self.sensors.create_sensor_path(timestamp, ext='png')
-        tiff_path = self.sensors.create_sensor_path(timestamp, ext='tif')
+        tiff_path = self.sensors.create_sensor_path(timestamp)
         uploaded_file_ids = []
 
         target_dsid = build_dataset_hierarchy(connector, host, secret_key, self.clowderspace,
-                                              self.sensors.get_display_name(), timestamp[:4], timestamp[:7],
-                                              timestamp[:10], leaf_ds_name=resource['dataset_info']['name'])
+                                              self.sensors.get_display_name(),
+                                              timestamp[:4], timestamp[5:7], timestamp[8:10],
+                                              leaf_ds_name=self.sensors.get_display_name()+' - '+timestamp)
 
         skipped_png = False
         if not os.path.exists(png_path) or self.overwrite:
@@ -139,6 +138,15 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         metadata = build_metadata(host, self.extractor_info, target_dsid, {
             "files_created": uploaded_file_ids}, 'dataset')
         upload_metadata(connector, host, secret_key, resource['id'], metadata)
+
+        # Upload original Lemnatec metadata to new Level_1 dataset
+        # TODO: Add reference to raw_data id in new metadata
+        print("uploading md to %s" % target_dsid)
+        lemna_md = build_metadata(host, self.extractor_info, target_dsid,
+                                  get_terraref_metadata(all_dsmd), 'dataset')
+        upload_metadata(connector, host, secret_key, target_dsid, lemna_md)
+
+        # TODO: make files created into hyperlinks
 
         self.end_message()
 

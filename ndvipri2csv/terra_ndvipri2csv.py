@@ -21,7 +21,7 @@ class BinValues2Csv(TerrarefExtractor):
         super(BinValues2Csv, self).__init__()
 
         # parse command line and load default logging configuration
-        self.setup(sensor="ndvipri2csv")
+        self.setup(sensor="spectral_index_csvs")
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         # First, check if we have the correct sensor type
