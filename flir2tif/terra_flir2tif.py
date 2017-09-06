@@ -8,10 +8,10 @@ import numpy
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
 from pyclowder.datasets import download_metadata, upload_metadata
-from terrautils.metadata import get_extractor_metadata, get_terraref_metadata
-from terrautils.extractors import TerrarefExtractor, is_latest_file, calculate_scan_time, \
-    calculate_gps_bounds, build_dataset_hierarchy, create_geotiff, build_metadata, \
-    create_image, load_json_file
+from terrautils.metadata import get_extractor_metadata, get_terraref_metadata, calculate_scan_time
+from terrautils.extractors import TerrarefExtractor, is_latest_file, \
+    build_dataset_hierarchy, build_metadata, load_json_file
+from terrautils.formats import create_geotiff, create_image
 
 import Get_FLIR as getFlir
 
@@ -116,7 +116,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         if not os.path.exists(tiff_path) or self.overwrite:
             logging.info("...getting information from json file for geoTIFF")
             scan_time = calculate_scan_time(metadata)
-            gps_bounds = calculate_gps_bounds(metadata, "flirIrCamera")
+            gps_bounds = metadata['spatial_metadata']['flirIrCamera']['bounding_box']
             if skipped_png:
                 raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
                 raw_data = numpy.rot90(raw_data, 3)
@@ -125,7 +125,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             logging.info("...creating TIFF image")
             # Rename temporary tif after creation to avoid long path errors
             out_tmp_tiff = "/home/extractor/"+resource['dataset_info']['name']+".tif"
-            create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True)
+            create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True, self.extractor_info, metadata)
             shutil.move(out_tmp_tiff, tiff_path)
             if tiff_path not in resource["local_paths"]:
                 fileid = upload_to_dataset(connector, host, secret_key, target_dsid, tiff_path)
