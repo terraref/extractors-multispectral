@@ -166,7 +166,6 @@ def get_flir(in_dir, out_dir, tif_list_file):
 
 
 def rawData_to_temperature(rawData, metadata):
-    
     try:
         calibP = get_calibrate_param(metadata)
         tc = np.zeros((640, 480))
@@ -175,7 +174,7 @@ def rawData_to_temperature(rawData, metadata):
             tc = rawData/10 - 273.15
         else:
             tc = flirRawToTemperature(rawData, calibP)
-    
+
         return tc
     except Exception as ex:
         fail('raw to temperature fail:' + str(ex))
@@ -204,21 +203,22 @@ def get_calibrate_param(metadata):
                 calibparameter.calibrationb2 = float(sensor_fixed_meta['calibration beta2'])
                 return calibparameter
 
-        elif 'calibration_R' in metadata:
-            if metadata['is_calibrated'] == 'False':
+        elif 'sensor_fixed_metadata' in metadata:
+            fixedmd = metadata['sensor_fixed_metadata']
+            if fixedmd['is_calibrated'] == 'False':
                 return calibparameter
             else:
                 calibparameter.calibrated = True
-                calibparameter.calibrationR = float(metadata['calibration_R'])
-                calibparameter.calibrationB = float(metadata['calibration_B'])
-                calibparameter.calibrationF = float(metadata['calibration_F'])
-                calibparameter.calibrationJ1 = float(metadata['calibration_J1'])
-                calibparameter.calibrationJ0 = float(metadata['calibration_J0'])
-                calibparameter.calibrationa1 = float(metadata['calibration_alpha1'])
-                calibparameter.calibrationa2 = float(metadata['calibration_alpha2'])
-                calibparameter.calibrationX = float(metadata['calibration_X'])
-                calibparameter.calibrationb1 = float(metadata['calibration_beta1'])
-                calibparameter.calibrationb2 = float(metadata['calibration_beta2'])
+                calibparameter.calibrationR = float(fixedmd['calibration_R'])
+                calibparameter.calibrationB = float(fixedmd['calibration_B'])
+                calibparameter.calibrationF = float(fixedmd['calibration_F'])
+                calibparameter.calibrationJ1 = float(fixedmd['calibration_J1'])
+                calibparameter.calibrationJ0 = float(fixedmd['calibration_J0'])
+                calibparameter.calibrationa1 = float(fixedmd['calibration_alpha1'])
+                calibparameter.calibrationa2 = float(fixedmd['calibration_alpha2'])
+                calibparameter.calibrationX = float(fixedmd['calibration_X'])
+                calibparameter.calibrationb1 = float(fixedmd['calibration_beta1'])
+                calibparameter.calibrationb2 = float(fixedmd['calibration_beta2'])
                 return calibparameter
 
     except KeyError as err:

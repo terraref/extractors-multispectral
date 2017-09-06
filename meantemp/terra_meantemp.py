@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import logging
 import numpy
 import json
 
@@ -15,6 +16,7 @@ from terrautils.geostreams import create_datapoint_with_dependencies
 
 import Get_FLIR as getFlir
 
+logging.basicConfig(format='%(asctime)s %(message)s')
 
 def add_local_arguments(parser):
     # add any additional arguments to parser
@@ -33,6 +35,8 @@ def get_traits_table():
               'citation_year': '2016',
               'citation_title': 'Maricopa Field Station Data and Metadata',
               'method': 'Mean temperature from infrared images'}
+
+    return (fields, traits)
 
 def generate_traits_list(traits):
     # compose the summary traits
@@ -86,20 +90,17 @@ class FlirMeanTemp(TerrarefExtractor):
         ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
         dsmd = download_metadata(connector, host, secret_key, resource['parent']['id'])
         terramd = get_terraref_metadata(dsmd, 'flirIrCamera')
-        scan_time = calculate_scan_time(terramd)
         timestamp = ds_info['name'].split(" - ")[1]
 
         all_plots = get_site_boundaries(timestamp, city='Maricopa')
+        plot_count = 0
         for plotname in all_plots:
             bounds = all_plots[plotname]
 
-            try:
-                # Use GeoJSON string to clip full field to this plot
-                (pxarray, geotrans) = clip_raster(resource['local_paths'][0], bounds)
-                tc = getFlir.rawData_to_temperature(pxarray, scan_time, terramd) # get temperature
-                mean_tc = numpy.mean(tc)
-            except:
-                continue
+            # Use GeoJSON string to clip full field to this plot
+            (pxarray, geotrans) = clip_raster(resource['local_paths'][0], bounds)
+            tc = getFlir.rawData_to_temperature(pxarray, terramd) # get temperature
+            mean_tc = numpy.mean(tc)
 
             # Create BETY-ready CSV
             (fields, traits) = get_traits_table()
@@ -113,18 +114,22 @@ class FlirMeanTemp(TerrarefExtractor):
             #submit_traits(tmp_csv, self.bety_key)
 
             # Prepare and submit datapoint
-            centroid = centroid_from_geojson(bounds)
+            centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
             time_fmt = timestamp+"T12:00:00-07:00"
             dpmetadata = {
                 "source": host+"files/"+resource['id'],
                 "canopy_cover": mean_tc
             }
+            print("submitting datapoint for %s at %s" % (plotname, str(centroid_lonlat)))
             create_datapoint_with_dependencies(connector, host, secret_key, "IR Average Temperature",
-                                               centroid, time_fmt, time_fmt, dpmetadata, timestamp)
+                                               (centroid_lonlat[1], centroid_lonlat[0]), time_fmt, time_fmt,
+                                               dpmetadata, timestamp)
+
+            plot_count += 1
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
-            "plots_processed": len(all_plots)
+            "plots_processed": plot_count
             # TODO: add link to BETY trait IDs
         }, 'dataset')
         upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
