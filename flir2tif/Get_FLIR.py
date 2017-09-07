@@ -172,7 +172,7 @@ def rawData_to_temperature(rawData, scan_time, metadata):
         tc = np.zeros((640, 480))
         
         if calibP.calibrated:
-            tc = rawData/10 - 273.15
+            tc = rawData/10
         else:
             tc = flirRawToTemperature(rawData, calibP)
     
