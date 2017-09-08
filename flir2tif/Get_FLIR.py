@@ -354,7 +354,7 @@ def flirRawToTemperature(rawData, calibP):
         
     corr_pxl_val = obj_rad + atm_rad + amb_refl_rad
         
-    pxl_temp = B/np.log(R/(corr_pxl_val-J0)*J1+F) - K0
+    pxl_temp = B/np.log(R/(corr_pxl_val-J0)*J1+F)# - K0
     
     return pxl_temp
 
