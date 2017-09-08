@@ -173,7 +173,6 @@ def rawData_to_temperature(rawData, metadata):
         if calibP.calibrated:
             tc = rawData/10
         else:
-            print("doing conversion!!")
             tc = flirRawToTemperature(rawData, calibP)
 
         return tc
@@ -189,7 +188,6 @@ def get_calibrate_param(metadata):
             if fixedmd['is_calibrated'] == 'True':
                 return calibparameter
             else:
-                print("uncalibrated!")
                 calibparameter.calibrated = False
                 calibparameter.calibrationR = float(fixedmd['calibration_R'])
                 calibparameter.calibrationB = float(fixedmd['calibration_B'])
