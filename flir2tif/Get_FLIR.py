@@ -172,7 +172,7 @@ def rawData_to_temperature(rawData, scan_time, metadata):
         tc = np.zeros((640, 480))
         
         if calibP.calibrated:
-            tc = rawData/10# - 273.15 (uncomment this to return as C instead of K)
+            tc = rawData/10 #(subtract 273.1to return as C instead of K)
         else:
             tc = flirRawToTemperature(rawData, calibP)
     
@@ -353,8 +353,8 @@ def flirRawToTemperature(rawData, calibP):
     amb_refl_rad = repmat((1-E)*tao*theo_amb_refl_rad, 640, 480)
         
     corr_pxl_val = obj_rad + atm_rad + amb_refl_rad
-        
-    pxl_temp = B/np.log(R/(corr_pxl_val-J0)*J1+F)# - K0
+
+    pxl_temp = B/np.log(R/(corr_pxl_val-J0)*J1+F)
     
     return pxl_temp
 
