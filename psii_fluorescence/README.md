@@ -1,6 +1,20 @@
+
+### Description
+
 This script computes all characterisitc fluorescence features for dark and light-adapted plants
 
- Variables used here:
+PSII.m computes a range of biologically relevant features from recorded PS2 images as gray scale images. 
+Features are desccribed below based on [Maxwell and Johnson (2000)](https://github.com/terraref/extractors-multispectral/blob/master/psii_fluorescence/ChlorophyllFluorescence-PracticalGuide.pdf).
+
+### Limitations
+
+Note that the parameter F0_light cannot be measured in the light, since we have a mixture of chlorophyll fluorescence and light. Hence the parameters Phi_PSII, qN, qP cannot be interpreted biologically relevant.
+
+To measure F0_light one would need a light source (during the night) with emission < 690 nm with a duration of 3-5 min before taking the F0_image. A similar protocol is used by the CropReporter Fluorescence System of Phenovation B.V.
+
+
+### Variables used here:
+
 ``` 
  F0_dark        - 1936-by-1216          double - F0 Zero fluorescence level for plants just after the excitation light pulse is applied
  
@@ -40,3 +54,7 @@ This script computes all characterisitc fluorescence features for dark and light
  
  Rfd            -  1936-by-1216        double  ratio of chlorophyll decrease to steady state Chlorophyll
 ```
+
+### References
+
+Maxwell, Kate, and Giles N. Johnson. "Chlorophyll fluorescence—a practical guide." Journal of Experimental Botany 51.345 (2000): 659-668. https://doi.org/10.1093/jexbot/51.345.659
