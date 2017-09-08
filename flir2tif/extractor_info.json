@@ -2,7 +2,7 @@
   "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
   "name": "terra.multispectral.flir2tif",
   "version": "2.0",
-  "description": "Thermal IR Temperature (C) GeoTIFF",
+  "description": "Thermal IR Temperature (K) GeoTIFF",
   "author": "Zongyang Li",
   "contributors": [],
   "contexts": [],
