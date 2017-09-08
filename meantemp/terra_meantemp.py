@@ -104,7 +104,7 @@ class FlirMeanTemp(TerrarefExtractor):
 
             # Create BETY-ready CSV
             (fields, traits) = get_traits_table()
-            traits['avg_temp'] = str(mean_tc)
+            traits['surface_temperature'] = str(mean_tc)
             traits['site'] = plotname
             traits['local_datetime'] = timestamp+"T12-00-00-000"
             trait_list = generate_traits_list(traits)

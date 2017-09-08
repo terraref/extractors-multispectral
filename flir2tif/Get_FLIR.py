@@ -34,7 +34,7 @@ TILE_FOLDER_NAME = 'tif_list'
 
 class calibParam:
     def __init__(self):
-        self.calibrated = False
+        self.calibrated = True
         self.calibrationR = 0.0
         self.calibrationB = 0.0
         self.calibrationF = 0.0
@@ -171,8 +171,8 @@ def rawData_to_temperature(rawData, scan_time, metadata):
         calibP = get_calibrate_param(metadata)
         tc = np.zeros((640, 480))
         
-        if not calibP.calibrated:
-            tc = rawData/10 - 273.15
+        if calibP.calibrated:
+            tc = rawData/10# - 273.15 (uncomment this to return as C instead of K)
         else:
             tc = flirRawToTemperature(rawData, calibP)
     
@@ -184,12 +184,12 @@ def get_calibrate_param(metadata):
     
     try:
         sensor_fixed_meta = metadata['lemnatec_measurement_metadata']['sensor_fixed_metadata']
-        calibrated = sensor_fixed_meta['calibrated']
+        calibrated = sensor_fixed_meta['is_calibrated']
         calibparameter = calibParam()
-        if calibrated == 'false':
+        if calibrated == 'True':
             return calibparameter
-        if calibrated == 'true':
-            calibparameter.calibrated = True
+        if calibrated == 'False':
+            calibparameter.calibrated = False
             calibparameter.calibrationR = float(sensor_fixed_meta['calibration r'])
             calibparameter.calibrationB = float(sensor_fixed_meta['calibration b'])
             calibparameter.calibrationF = float(sensor_fixed_meta['calibration f'])
@@ -347,10 +347,10 @@ def flirRawToTemperature(rawData, calibP):
     obj_rad = im*E*tao
         
     theo_atm_rad = (R*J1/(math.exp(B/AtmTemp)-F)) + J0
-    atm_rad = repmat((1-tao)*theo_atm_rad, 480, 640)
+    atm_rad = repmat((1-tao)*theo_atm_rad, 640, 480)
         
     theo_amb_refl_rad = (R*J1/(math.exp(B/AmbTemp)-F)) + J0
-    amb_refl_rad = repmat((1-E)*tao*theo_amb_refl_rad, 480, 640)
+    amb_refl_rad = repmat((1-E)*tao*theo_amb_refl_rad, 640, 480)
         
     corr_pxl_val = obj_rad + atm_rad + amb_refl_rad
         

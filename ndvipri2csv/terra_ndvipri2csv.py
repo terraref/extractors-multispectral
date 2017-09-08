@@ -71,6 +71,8 @@ class BinValues2Csv(TerrarefExtractor):
                 wr.writeheader()
                 wr.writerow({'file_name':resource['name'], 'NDVI': values})
 
+            # TODO: Send this to geostreams
+
             fileid = upload_to_dataset(connector, host, secret_key, target_dsid, out_file)
             uploaded_file_ids.append(fileid)
 
