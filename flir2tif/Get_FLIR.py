@@ -165,47 +165,46 @@ def get_flir(in_dir, out_dir, tif_list_file):
     return
 
 
-def rawData_to_temperature(rawData, scan_time, metadata):
-    
+def rawData_to_temperature(rawData, metadata):
     try:
         calibP = get_calibrate_param(metadata)
         tc = np.zeros((640, 480))
         
         if calibP.calibrated:
-            tc = rawData/10 #(subtract 273.1to return as C instead of K)
+            tc = rawData/10
         else:
+            print("doing conversion!!")
             tc = flirRawToTemperature(rawData, calibP)
-    
+
         return tc
     except Exception as ex:
         fail('raw to temperature fail:' + str(ex))
         
 def get_calibrate_param(metadata):
-    
+    calibparameter = calibParam()
+
     try:
-        sensor_fixed_meta = metadata['lemnatec_measurement_metadata']['sensor_fixed_metadata']
-        calibrated = sensor_fixed_meta['is_calibrated']
-        calibparameter = calibParam()
-        if calibrated == 'True':
-            return calibparameter
-        if calibrated == 'False':
-            calibparameter.calibrated = False
-            calibparameter.calibrationR = float(sensor_fixed_meta['calibration r'])
-            calibparameter.calibrationB = float(sensor_fixed_meta['calibration b'])
-            calibparameter.calibrationF = float(sensor_fixed_meta['calibration f'])
-            calibparameter.calibrationJ1 = float(sensor_fixed_meta['calibration j1'])
-            calibparameter.calibrationJ0 = float(sensor_fixed_meta['calibration j0'])
-            calibparameter.calibrationa1 = float(sensor_fixed_meta['calibration alpha1'])
-            calibparameter.calibrationa2 = float(sensor_fixed_meta['calibration alpha2'])
-            calibparameter.calibrationX = float(sensor_fixed_meta['calibration x'])
-            calibparameter.calibrationb1 = float(sensor_fixed_meta['calibration beta1'])
-            calibparameter.calibrationb2 = float(sensor_fixed_meta['calibration beta2'])
-            
-            return calibparameter
-        
+        if 'terraref_cleaned_metadata' in metadata:
+            fixedmd = metadata['sensor_fixed_metadata']
+            if fixedmd['is_calibrated'] == 'True':
+                return calibparameter
+            else:
+                print("uncalibrated!")
+                calibparameter.calibrated = False
+                calibparameter.calibrationR = float(fixedmd['calibration_R'])
+                calibparameter.calibrationB = float(fixedmd['calibration_B'])
+                calibparameter.calibrationF = float(fixedmd['calibration_F'])
+                calibparameter.calibrationJ1 = float(fixedmd['calibration_J1'])
+                calibparameter.calibrationJ0 = float(fixedmd['calibration_J0'])
+                calibparameter.calibrationa1 = float(fixedmd['calibration_alpha1'])
+                calibparameter.calibrationa2 = float(fixedmd['calibration_alpha2'])
+                calibparameter.calibrationX = float(fixedmd['calibration_X'])
+                calibparameter.calibrationb1 = float(fixedmd['calibration_beta1'])
+                calibparameter.calibrationb2 = float(fixedmd['calibration_beta2'])
+                return calibparameter
 
     except KeyError as err:
-        return calibParam()
+        return calibparameter
     
 
 def create_geotiff_with_temperature(np_arr, temp_arr, gps_bounds, out_file_path):
@@ -353,7 +352,7 @@ def flirRawToTemperature(rawData, calibP):
     amb_refl_rad = repmat((1-E)*tao*theo_amb_refl_rad, 640, 480)
         
     corr_pxl_val = obj_rad + atm_rad + amb_refl_rad
-
+        
     pxl_temp = B/np.log(R/(corr_pxl_val-J0)*J1+F)
     
     return pxl_temp

@@ -115,12 +115,11 @@ class FlirBin2JpgTiff(TerrarefExtractor):
 
         if not os.path.exists(tiff_path) or self.overwrite:
             logging.info("...getting information from json file for geoTIFF")
-            scan_time = calculate_scan_time(metadata)
             gps_bounds = metadata['spatial_metadata']['flirIrCamera']['bounding_box']
             if skipped_png:
                 raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
                 raw_data = numpy.rot90(raw_data, 3)
-            tc = getFlir.rawData_to_temperature(raw_data, scan_time, metadata) # get temperature
+            tc = getFlir.rawData_to_temperature(raw_data, metadata) # get temperature
 
             logging.info("...creating TIFF image")
             # Rename temporary tif after creation to avoid long path errors
