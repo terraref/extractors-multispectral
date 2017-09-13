@@ -99,8 +99,8 @@ class FlirMeanTemp(TerrarefExtractor):
 
             # Use GeoJSON string to clip full field to this plot
             (pxarray, geotrans) = clip_raster(resource['local_paths'][0], bounds)
-            tc = getFlir.rawData_to_temperature(pxarray, terramd) # get temperature
-            mean_tc = numpy.mean(tc)
+            #tc = getFlir.rawData_to_temperature(pxarray, terramd) # get temperature
+            mean_tc = numpy.mean(pxarray)
 
             # Create BETY-ready CSV
             (fields, traits) = get_traits_table()
