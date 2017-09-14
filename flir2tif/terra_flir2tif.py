@@ -4,6 +4,7 @@ import os
 import logging
 import shutil
 import numpy
+from urlparse import urljoin
 
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
@@ -107,7 +108,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             # Only upload the newly generated file to Clowder if it isn't already in dataset
             if png_path not in resource["local_paths"]:
                 fileid = upload_to_dataset(connector, host, secret_key, target_dsid, png_path)
-                uploaded_file_ids.append(fileid)
+                uploaded_file_ids.append(urljoin(host, "/files/") + fileid)
             self.created += 1
             self.bytes += os.path.getsize(png_path)
         else:
@@ -128,7 +129,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             shutil.move(out_tmp_tiff, tiff_path)
             if tiff_path not in resource["local_paths"]:
                 fileid = upload_to_dataset(connector, host, secret_key, target_dsid, tiff_path)
-                uploaded_file_ids.append(fileid)
+                uploaded_file_ids.append(urljoin(host, "/files/") + fileid)
             self.created += 1
             self.bytes += os.path.getsize(tiff_path)
 
@@ -138,12 +139,10 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         # Upload original Lemnatec metadata to new Level_1 dataset
-        # TODO: Add reference to raw_data id in new metadata
-        lemna_md = build_metadata(host, self.extractor_info, target_dsid,
-                                  get_terraref_metadata(all_dsmd), 'dataset')
+        md = get_terraref_metadata(all_dsmd)
+        md['raw_data_source'] = urljoin(host, "/datasets/") + resource['id']
+        lemna_md = build_metadata(host, self.extractor_info, target_dsid, md, 'dataset')
         upload_metadata(connector, host, secret_key, target_dsid, lemna_md)
-
-        # TODO: make files created into hyperlinks
 
         self.end_message()
 
