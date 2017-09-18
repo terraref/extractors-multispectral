@@ -93,7 +93,7 @@ class FlirMeanTemp(TerrarefExtractor):
         timestamp = ds_info['name'].split(" - ")[1]
 
         all_plots = get_site_boundaries(timestamp, city='Maricopa')
-        plot_count = 0
+        successful_plots = 0
         for plotname in all_plots:
             bounds = all_plots[plotname]
 
@@ -111,7 +111,7 @@ class FlirMeanTemp(TerrarefExtractor):
             generate_csv(tmp_csv, fields, trait_list)
 
             # submit CSV to BETY
-            #submit_traits(tmp_csv, self.bety_key)
+            submit_traits(tmp_csv, self.bety_key)
 
             # Prepare and submit datapoint
             centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
@@ -125,12 +125,13 @@ class FlirMeanTemp(TerrarefExtractor):
                                                (centroid_lonlat[1], centroid_lonlat[0]), time_fmt, time_fmt,
                                                dpmetadata, timestamp)
 
-            plot_count += 1
+            successful_plots += 1
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
-            "plots_processed": plot_count
-            # TODO: add link to BETY trait IDs
+            "plots_processed": successful_plots,
+            "plots_skipped": len(all_plots)-successful_plots,
+            "betydb_link": "https://terraref.ncsa.illinois.edu/bety/api/beta/variables?name=surface_temperature"
         }, 'dataset')
         upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
 
