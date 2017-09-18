@@ -6,7 +6,6 @@ import json
 
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import download_metadata, upload_metadata, get_info
-from terrautils.metadata import get_extractor_metadata, get_terraref_metadata
 from terrautils.extractors import TerrarefExtractor, is_latest_file, calculate_scan_time, \
     calculate_gps_bounds, build_dataset_hierarchy, create_geotiff, build_metadata, \
     create_image, load_json_file
@@ -14,7 +13,6 @@ from terrautils.gdal import centroid_from_geojson, clip_raster
 from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
 from terrautils.geostreams import create_datapoint_with_dependencies
 
-import Get_FLIR as getFlir
 
 logging.basicConfig(format='%(asctime)s %(message)s')
 
@@ -76,7 +74,7 @@ class FlirMeanTemp(TerrarefExtractor):
         self.bety_key = self.args.bety_key
 
     def check_message(self, connector, host, secret_key, resource, parameters):
-        if resource['name'].find('fullfield') > -1:
+        if resource['name'].find('fullfield') > -1 and resource['name'].find('_ir.tif') > -1:
             return CheckMessage.download
 
         return CheckMessage.ignore
@@ -89,7 +87,6 @@ class FlirMeanTemp(TerrarefExtractor):
         # Get full list of experiment plots using date as filter
         ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
         dsmd = download_metadata(connector, host, secret_key, resource['parent']['id'])
-        terramd = get_terraref_metadata(dsmd, 'flirIrCamera')
         timestamp = ds_info['name'].split(" - ")[1]
 
         all_plots = get_site_boundaries(timestamp, city='Maricopa')
