@@ -3,12 +3,12 @@
 import logging
 import numpy
 import json
+import os
 
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import download_metadata, upload_metadata, get_info
-from terrautils.extractors import TerrarefExtractor, is_latest_file, calculate_scan_time, \
-    calculate_gps_bounds, build_dataset_hierarchy, create_geotiff, build_metadata, \
-    create_image, load_json_file
+from terrautils.extractors import TerrarefExtractor, is_latest_file, \
+    build_dataset_hierarchy, build_metadata, load_json_file
 from terrautils.gdal import centroid_from_geojson, clip_raster
 from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
 from terrautils.geostreams import create_datapoint_with_dependencies
@@ -25,7 +25,7 @@ def get_traits_table():
     fields = ('local_datetime', 'canopy_cover', 'access_level', 'species', 'site',
               'citation_author', 'citation_year', 'citation_title', 'method')
     traits = {'local_datetime' : '',
-              'avg_temp' : [],
+              'surface_temperature' : [],
               'access_level': '2',
               'species': 'Sorghum bicolor',
               'site': [],
@@ -39,7 +39,7 @@ def get_traits_table():
 def generate_traits_list(traits):
     # compose the summary traits
     trait_list = [  traits['local_datetime'],
-                    traits['avg_temp'],
+                    traits['surface_temperature'],
                     traits['access_level'],
                     traits['species'],
                     traits['site'],
@@ -113,16 +113,18 @@ class FlirMeanTemp(TerrarefExtractor):
             # Prepare and submit datapoint
             centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
             time_fmt = timestamp+"T12:00:00-07:00"
-            dpmetadata = {
-                "source": host+"files/"+resource['id'],
-                "canopy_cover": mean_tc
+            dpmetadata = {s
+                "source": host + ("" if host.endswith("/") else "/") + "files/" + resource['id'],
+                "surface_temperature": str(mean_tc)
             }
             print("submitting datapoint for %s at %s" % (plotname, str(centroid_lonlat)))
-            create_datapoint_with_dependencies(connector, host, secret_key, "IR Average Temperature",
+            create_datapoint_with_dependencies(connector, host, secret_key, "IR Surface Temperature",
                                                (centroid_lonlat[1], centroid_lonlat[0]), time_fmt, time_fmt,
                                                dpmetadata, timestamp)
 
             successful_plots += 1
+
+        os.remove(tmp_csv)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
