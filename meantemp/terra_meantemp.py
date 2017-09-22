@@ -113,7 +113,7 @@ class FlirMeanTemp(TerrarefExtractor):
             # Prepare and submit datapoint
             centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
             time_fmt = timestamp+"T12:00:00-07:00"
-            dpmetadata = {s
+            dpmetadata = {
                 "source": host + ("" if host.endswith("/") else "/") + "files/" + resource['id'],
                 "surface_temperature": str(mean_tc)
             }
