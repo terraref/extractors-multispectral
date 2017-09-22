@@ -1,15 +1,15 @@
 {
   "@context": "http://clowder.ncsa.illinois.edu/contexts/extractors.jsonld",
-  "name": "terra.multispectral.flir2tif",
+  "name": "terra.multispectral.meantemp",
   "version": "2.0",
-  "description": "Thermal IR Temperature (K) GeoTIFF",
+  "description": "FlirIR Mean Temperature Extractor",
   "author": "Zongyang Li",
   "contributors": [],
   "contexts": [],
   "repository": {"repType": "git", "repUrl": "https://github.com/terraref/extractors-multispectral"},
   "process": {
-    "dataset": [
-      "file.added"
+    "file": [
+      "image.tiff"
     ]
   },
   "external_services": [],
