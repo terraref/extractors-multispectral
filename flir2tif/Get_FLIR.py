@@ -288,8 +288,8 @@ def load_flir_data(file_path):
         
 def flir_data_visualization(im, outfile_path, Gmin, Gmax):
     
-    #Gmin = im.min()
-    #Gmax = im.max()
+    Gmin = im.min()
+    Gmax = im.max()
     At = (im-Gmin)/(Gmax - Gmin)
     
     my_cmap = cm.get_cmap('jet')
