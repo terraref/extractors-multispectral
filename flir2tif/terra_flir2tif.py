@@ -4,7 +4,7 @@ import os
 import logging
 import shutil
 import numpy
-from urlparse import urljoin
+import tempfile
 
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
@@ -55,14 +55,14 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             tiff_path = self.sensors.get_sensor_path(timestamp)
 
             if os.path.exists(png_path) and os.path.exists(tiff_path) and not self.overwrite:
-                logging.info("skipping dataset %s, outputs already exist" % resource['id'])
+                logging.getLogger(__name__).info("skipping dataset %s, outputs already exist" % resource['id'])
                 return CheckMessage.ignore
 
             # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
             if not found_md:
                 md = download_metadata(connector, host, secret_key, resource['id'])
                 if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
-                    logging.info("skipping dataset %s, already processed" % resource['id'])
+                    logging.getLogger(__name__).info("skipping dataset %s, already processed" % resource['id'])
                     return CheckMessage.ignore
                 if get_terraref_metadata(md):
                     return CheckMessage.download
@@ -85,7 +85,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             elif f.endswith('_ir.bin'):
                 bin_file = f
         if None in [bin_file, metadata]:
-            logging.error('could not find all both of ir.bin/metadata')
+            logging.getLogger(__name__).error('could not find all both of ir.bin/metadata')
             return
 
         # Determine output directory
@@ -101,7 +101,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
 
         skipped_png = False
         if not os.path.exists(png_path) or self.overwrite:
-            logging.info("...creating PNG image")
+            logging.getLogger(__name__).info("Generating %s" % png_path)
             # get raw data from bin file
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
             raw_data = numpy.rot90(raw_data, 3)
@@ -116,16 +116,16 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             skipped_png = True
 
         if not os.path.exists(tiff_path) or self.overwrite:
-            logging.info("...getting information from json file for geoTIFF")
+            logging.getLogger(__name__).info("Generating temperature matrix")
             gps_bounds = geojson_to_tuples(metadata['spatial_metadata']['flirIrCamera']['bounding_box'])
             if skipped_png:
                 raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
                 raw_data = numpy.rot90(raw_data, 3)
             tc = getFlir.rawData_to_temperature(raw_data, metadata) # get temperature
 
-            logging.info("...creating TIFF image")
+            logging.getLogger(__name__).info("Creating %s" % tiff_path)
             # Rename temporary tif after creation to avoid long path errors
-            out_tmp_tiff = "/home/extractor/"+resource['dataset_info']['name']+".tif"
+            out_tmp_tiff = os.path.join(tempfile.gettempdir(), resource['id'].encode('utf8'))
             create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True, self.extractor_info, metadata)
             shutil.move(out_tmp_tiff, tiff_path)
             if tiff_path not in resource["local_paths"]:
