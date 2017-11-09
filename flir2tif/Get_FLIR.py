@@ -20,7 +20,7 @@ ZERO_ZERO = (33.0745,-111.97475)
 
 mode_date = date(2016, 9, 15)
 
-# Scanalyzer -> MAC formular @ https://terraref.gitbooks.io/terraref-documentation/content/user/geospatial-information.html
+# Scanalyzer -> MAC formula @ https://terraref.gitbooks.io/terraref-documentation/content/user/geospatial-information.html
 # Mx = ax + bx * Gx + cx * Gy
 # My = ay + by * Gx + cy * Gy
 SE_latlon = (33.07451869,-111.97477775)
