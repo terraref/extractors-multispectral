@@ -1,19 +1,84 @@
 # FLIR Converter
 
-This extractor processes binary files into PNG and TIFF files. 
+## Overview
+Convert FLIR raw data into geotiff raster data product of observed temperature.
+
 
 _Input_
 
-  - Evaluation is triggered whenever a file is added to a dataset
-  - Checks whether the file is a _ir.bin file
+  - FLIR raw data in .bin file
+  - reference metadata in .json file
     
 _Output_
 
-  - The dataset containing the _ir file will get corresponding .png and .tif files
-  - PNG file is a heatmap
-  - TIF file consist of geospatial attributes and temperature in degree C in each pixel
-  - If "calibrated" is "true" in metadata, this will use FlirRawToTemperature.m in degrees C, otherwise will consider raw data as 100 mk in unit
-  
+  - A heat map with a scale of min-max value in the input .bin file, save as a png file
+  - A TIFF file consist of geospatial attributes and temperature in Kelvin Degree in each pixel
+
+## Algorithm Description
+
+### Algorithm
+
+Our codes is a re-implementation of this matlab code ([https://github.com/terraref/computing-pipeline/blob/master/scripts/FLIR/FlirRawToTemperature.m](https://github.com/terraref/computing-pipeline/blob/master/scripts/FLIR/FlirRawToTemperature.m)) converted into python.
+
+1. Atmospheric transmission - correction factor from air temperature, relative humidity and distance of sensor to object.
+
+2. Correct raw pixel values from external factors,
+
+    1. General equation : Total Radiation = Object Radiation + Atmosphere Radiation + Ambient Reflection Radiation
+
+    2. Object Radiation = Theoretical object radiation * emissivity * atmospheric transmission
+
+    3. Atmosphere Radiation= (1 - atmospheric transmission) * Theoretical atmospheric radiation
+
+    4. Ambient Reflection Radiation = (1 - emissivity) * atmospheric transmission * Theoretical Ambient Reflection Radiation
+
+3. RBF equation: transformation of pixel intensity in radiometric temperature from raw values or corrected values
+
+4.  Algorithm parameters:
+
+       R: Planck constant		function of integration time and wavelength)
+
+       B: Planck constant		function of wavelength
+
+       F: Planck constant		positive value (0 - 1)
+
+       J0: global offset
+
+       J1: global gain
+
+       X, a1, b1, a2, b2: Constant Atmospheric transmission parameter by Flir
+
+       H2O_K1, H2O_K2, H2O_K3, H2O_K4: Constant for VPD computation (sqtrH2O)
+
+
+
+   Environmental factors:
+
+       H = Relative Humidity from the gantry (0 - 1)
+
+       T = air temperature in degree Celsius from the gantry
+
+       D = Object Distance - camera/canopy (m)
+
+       E = object emissivity, vegetation is around 0.98, bare soil around 0.93…
+
+### Parameters
+
+    HEIGHT_MAGIC_NUMBER: To obtain a well stitched map, a HEIGHT_MAGIC_NUMBER was applied when we estimate the field of view, this is a testing based number.
+
+    The geo-reference bounding box based on an assumption of image axis is in a same direction of lat-lon axis.
+
+
+### Failure Conditions
+
+1. Because of a failure of weatherproof system, data from 05-01-2017 to 10-01-2017 can not be used
+
+2. If the sensor is moved within the sensor box, the HEIGHT_MAGIC_NUMBER might need to change in order to correctly stitch the images.
+
+Reference Github discussion: https://github.com/terraref/reference-data/issues/182
+
+## Implementation
+
 ### Docker
 The Dockerfile included in this directory can be used to launch this extractor in a container.
 
