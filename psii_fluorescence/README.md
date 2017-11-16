@@ -12,8 +12,12 @@ Note that the parameter F0_light cannot be measured in the light, since we have 
 
 To measure F0_light one would need a light source (during the night) with emission < 690 nm with a duration of 3-5 min before taking the F0_image. A similar protocol is used by the CropReporter Fluorescence System of Phenovation B.V.
 
-See https://github.com/terraref/computing-pipeline/issues/216
 
+### Discussions 
+
+Both of these issues include proposals for how to analyze data from this sensor
+* https://github.com/terraref/computing-pipeline/issues/216
+* https://github.com/terraref/computing-pipeline/issues/152
 
 ### Variables used here:
 
