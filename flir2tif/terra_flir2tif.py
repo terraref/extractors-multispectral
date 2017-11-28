@@ -36,6 +36,9 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         self.scale_values = self.args.scale_values
 
     def check_message(self, connector, host, secret_key, resource, parameters):
+        if parameters["rulechecked"]:
+            return CheckMessage.download
+
         if not is_latest_file(resource):
             return CheckMessage.ignore
 
