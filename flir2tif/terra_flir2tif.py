@@ -15,7 +15,8 @@ from terrautils.extractors import TerrarefExtractor, is_latest_file, \
 from terrautils.formats import create_geotiff, create_image
 from terrautils.spatial import geojson_to_tuples
 
-import Get_FLIR as getFlir
+from flir_ir import Get_FLIR as getFlir
+
 
 
 def add_local_arguments(parser):
