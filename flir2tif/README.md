@@ -13,6 +13,10 @@ _Output_
   - PNG file is a heatmap
   - TIF file consist of geospatial attributes and temperature in degree C in each pixel
   - If "calibrated" is "true" in metadata, this will use FlirRawToTemperature.m in degrees C, otherwise will consider raw data as 100 mk in unit
+  - Data are inserted into trait database with the name 'surface_temperature'
+  
+
+Plot level summaries are named ['surface_temperature'](http://mmisw.org/ont/cf/parameter/surface_temperature) in the trait database. This name from the Climate Forecast (CF) conventions, and is used instead of 'canopy_temperature' for two reasons. First, because we do not (currently) filter soil in this pipeline. Second, because the CF definition of surface_temperature distinguishes the surface from the medium: "The surface temperature is the temperature at the interface, not the bulk temperature of the medium above or below."   http://cfconventions.org/Data/cf-standard-names/48/build/cf-standard-name-table.html
   
 ### Docker
 The Dockerfile included in this directory can be used to launch this extractor in a container.
