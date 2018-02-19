@@ -4,6 +4,7 @@ import logging
 import numpy
 import json
 import os
+import re
 
 from pyclowder.utils import CheckMessage
 from pyclowder.datasets import download_metadata, upload_metadata, get_info
@@ -22,7 +23,7 @@ def add_local_arguments(parser):
 
 def get_traits_table():
     # Compiled traits table
-    fields = ('local_datetime', 'canopy_cover', 'access_level', 'species', 'site',
+    fields = ('local_datetime', 'surface_temperature', 'access_level', 'species', 'site',
               'citation_author', 'citation_year', 'citation_title', 'method')
     traits = {'local_datetime' : '',
               'surface_temperature' : [],
@@ -74,7 +75,7 @@ class FlirMeanTemp(TerrarefExtractor):
         self.bety_key = self.args.bety_key
 
     def check_message(self, connector, host, secret_key, resource, parameters):
-        if resource['name'].find('fullfield') > -1 and resource['name'].find('_ir.tif') > -1:
+        if resource['name'].find('fullfield') > -1 and re.match("^.*\d+_ir_.*thumb.tif", resource['name']):
             return CheckMessage.download
 
         return CheckMessage.ignore
@@ -83,13 +84,16 @@ class FlirMeanTemp(TerrarefExtractor):
         self.start_message()
 
         tmp_csv = "meantemptraits.csv"
+        csv_file = open(tmp_csv, 'w')
+        (fields, traits) = get_traits_table()
+        csv_file.write(','.join(map(str, fields)) + '\n')
 
         # Get full list of experiment plots using date as filter
         ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
         dsmd = download_metadata(connector, host, secret_key, resource['parent']['id'])
         timestamp = ds_info['name'].split(" - ")[1]
-
         all_plots = get_site_boundaries(timestamp, city='Maricopa')
+
         successful_plots = 0
         for plotname in all_plots:
             bounds = all_plots[plotname]
@@ -97,34 +101,36 @@ class FlirMeanTemp(TerrarefExtractor):
             # Use GeoJSON string to clip full field to this plot
             (pxarray, geotrans) = clip_raster(resource['local_paths'][0], bounds)
             #tc = getFlir.rawData_to_temperature(pxarray, terramd) # get temperature
-            mean_tc = numpy.mean(pxarray)
+            # Filter out any
+            pxarray[pxarray < 0] = numpy.nan
+            mean_tc = numpy.nanmean(pxarray) - 273.15
 
             # Create BETY-ready CSV
-            (fields, traits) = get_traits_table()
-            traits['surface_temperature'] = str(mean_tc)
-            traits['site'] = plotname
-            traits['local_datetime'] = timestamp+"T12-00-00-000"
-            trait_list = generate_traits_list(traits)
-            generate_csv(tmp_csv, fields, trait_list)
-
-            # submit CSV to BETY
-            submit_traits(tmp_csv, self.bety_key)
-
-            # Prepare and submit datapoint
-            centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
-            time_fmt = timestamp+"T12:00:00-07:00"
-            dpmetadata = {
-                "source": host + ("" if host.endswith("/") else "/") + "files/" + resource['id'],
-                "surface_temperature": str(mean_tc)
-            }
-            print("submitting datapoint for %s at %s" % (plotname, str(centroid_lonlat)))
-            create_datapoint_with_dependencies(connector, host, secret_key, "IR Surface Temperature",
-                                               (centroid_lonlat[1], centroid_lonlat[0]), time_fmt, time_fmt,
-                                               dpmetadata, timestamp)
+            if not numpy.isnan(mean_tc):
+                traits['surface_temperature'] = str(mean_tc)
+                traits['site'] = plotname
+                traits['local_datetime'] = timestamp+"T12:00:00"
+                trait_list = generate_traits_list(traits)
+                #generate_csv(tmp_csv, fields, trait_list)
+                csv_file.write(','.join(map(str, trait_list)) + '\n')
+    
+    
+                # Prepare and submit datapoint
+                centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
+                time_fmt = timestamp+"T12:00:00-07:00"
+                dpmetadata = {
+                    "source": host + ("" if host.endswith("/") else "/") + "files/" + resource['id'],
+                    "surface_temperature": str(mean_tc)
+                }
+                create_datapoint_with_dependencies(connector, host, secret_key, "IR Surface Temperature",
+                                                   (centroid_lonlat[1], centroid_lonlat[0]), time_fmt, time_fmt,
+                                                   dpmetadata, timestamp)
 
             successful_plots += 1
 
-        os.remove(tmp_csv)
+        # submit CSV to BETY
+        csv_file.close()
+        submit_traits(tmp_csv, betykey=self.bety_key)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
