@@ -23,16 +23,11 @@ def add_local_arguments(parser):
 
 def get_traits_table():
     # Compiled traits table
-    fields = ('local_datetime', 'surface_temperature', 'access_level', 'species', 'site',
-              'citation_author', 'citation_year', 'citation_title', 'method')
+    fields = ('local_datetime', 'surface_temperature', 'access_level', 'site', 'method')
     traits = {'local_datetime' : '',
               'surface_temperature' : [],
               'access_level': '2',
-              'species': 'Sorghum bicolor',
               'site': [],
-              'citation_author': '"Zongyang, Li"',
-              'citation_year': '2016',
-              'citation_title': 'Maricopa Field Station Data and Metadata',
               'method': 'Mean temperature from infrared images'}
 
     return (fields, traits)
@@ -42,11 +37,7 @@ def generate_traits_list(traits):
     trait_list = [  traits['local_datetime'],
                     traits['surface_temperature'],
                     traits['access_level'],
-                    traits['species'],
                     traits['site'],
-                    traits['citation_author'],
-                    traits['citation_year'],
-                    traits['citation_title'],
                     traits['method']
                     ]
 
@@ -81,26 +72,29 @@ class FlirMeanTemp(TerrarefExtractor):
         return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
-        self.start_message()
-
-        tmp_csv = "meantemptraits.csv"
-        csv_file = open(tmp_csv, 'w')
-        (fields, traits) = get_traits_table()
-        csv_file.write(','.join(map(str, fields)) + '\n')
+        self.start_message(resource)
 
         # Get full list of experiment plots using date as filter
         ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
-        dsmd = download_metadata(connector, host, secret_key, resource['parent']['id'])
         timestamp = ds_info['name'].split(" - ")[1]
         all_plots = get_site_boundaries(timestamp, city='Maricopa')
 
+        csv_path = self.sensors.create_sensor_path(timestamp)
+        csv_file = open(csv_path, 'w')
+        (fields, traits) = get_traits_table()
+        csv_file.write(','.join(map(str, fields)) + '\n')
+
         successful_plots = 0
         for plotname in all_plots:
+            if plotname.find("KSU") > -1:
+                self.log_info(resource, "skipping %s" % plotname)
+                continue
             bounds = all_plots[plotname]
+            self.log_info(resource, "clipping and processing %s" % plotname)
 
             # Use GeoJSON string to clip full field to this plot
             (pxarray, geotrans) = clip_raster(resource['local_paths'][0], bounds)
-            #tc = getFlir.rawData_to_temperature(pxarray, terramd) # get temperature
+
             # Filter out any
             pxarray[pxarray < 0] = numpy.nan
             mean_tc = numpy.nanmean(pxarray) - 273.15
@@ -113,8 +107,7 @@ class FlirMeanTemp(TerrarefExtractor):
                 trait_list = generate_traits_list(traits)
                 #generate_csv(tmp_csv, fields, trait_list)
                 csv_file.write(','.join(map(str, trait_list)) + '\n')
-    
-    
+
                 # Prepare and submit datapoint
                 centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
                 time_fmt = timestamp+"T12:00:00-07:00"
@@ -125,14 +118,18 @@ class FlirMeanTemp(TerrarefExtractor):
                 create_datapoint_with_dependencies(connector, host, secret_key, "IR Surface Temperature",
                                                    (centroid_lonlat[1], centroid_lonlat[0]), time_fmt, time_fmt,
                                                    dpmetadata, timestamp)
+            else:
+                self.log_info(resource, "not a number")
 
             successful_plots += 1
 
         # submit CSV to BETY
         csv_file.close()
-        submit_traits(tmp_csv, betykey=self.bety_key)
+        self.log_info(resource, "submitting %s to BETYdb" % csv_path)
+        submit_traits(csv_path, betykey=self.bety_key)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
+        self.log_info(resource, "uploading metadata to dataset")
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
             "plots_processed": successful_plots,
             "plots_skipped": len(all_plots)-successful_plots,
@@ -140,7 +137,7 @@ class FlirMeanTemp(TerrarefExtractor):
         }, 'dataset')
         upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
 
-        self.end_message()
+        self.end_message(resource)
 
 if __name__ == "__main__":
     extractor = FlirMeanTemp()
