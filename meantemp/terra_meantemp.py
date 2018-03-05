@@ -85,6 +85,7 @@ class FlirMeanTemp(TerrarefExtractor):
         csv_file.write(','.join(map(str, fields)) + '\n')
 
         successful_plots = 0
+        nan_plots = 0
         for plotname in all_plots:
             if plotname.find("KSU") > -1:
                 self.log_info(resource, "skipping %s" % plotname)
@@ -119,9 +120,11 @@ class FlirMeanTemp(TerrarefExtractor):
                                                    (centroid_lonlat[1], centroid_lonlat[0]), time_fmt, time_fmt,
                                                    dpmetadata, timestamp)
             else:
-                self.log_info(resource, "not a number")
+                nan_plots += 1
 
             successful_plots += 1
+
+        self.log_info(resource, "skipped %s of %s plots due to NaN" % (nan_plots, len(all_plots)))
 
         # submit CSV to BETY
         csv_file.close()
@@ -131,8 +134,9 @@ class FlirMeanTemp(TerrarefExtractor):
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         self.log_info(resource, "uploading metadata to dataset")
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
+            "total_plots": len(all_plots),
             "plots_processed": successful_plots,
-            "plots_skipped": len(all_plots)-successful_plots,
+            "blank_plots": nan_plots,
             "betydb_link": "https://terraref.ncsa.illinois.edu/bety/api/beta/variables?name=surface_temperature"
         }, 'dataset')
         upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
