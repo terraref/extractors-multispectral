@@ -36,7 +36,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         self.scale_values = self.args.scale_values
 
     def check_message(self, connector, host, secret_key, resource, parameters):
-        if parameters["rulechecked"]:
+        if "rulechecked" in parameters and parameters["rulechecked"]:
             return CheckMessage.download
 
         if not is_latest_file(resource):
@@ -102,6 +102,12 @@ class FlirBin2JpgTiff(TerrarefExtractor):
                                               timestamp[:4], timestamp[5:7], timestamp[8:10],
                                               leaf_ds_name=self.sensors.get_display_name()+' - '+timestamp)
 
+        # Upload original Lemnatec metadata to new Level_1 dataset
+        md = get_terraref_metadata(all_dsmd)
+        md['raw_data_source'] = host + ("" if host.endswith("/") else "/") + "datasets/" + resource['id']
+        lemna_md = build_metadata(host, self.extractor_info, target_dsid, md, 'dataset')
+        upload_metadata(connector, host, secret_key, target_dsid, lemna_md)
+
         skipped_png = False
         if not os.path.exists(png_path) or self.overwrite:
             logging.getLogger(__name__).info("Generating %s" % png_path)
@@ -141,12 +147,6 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         metadata = build_metadata(host, self.extractor_info, target_dsid, {
             "files_created": uploaded_file_ids}, 'dataset')
         upload_metadata(connector, host, secret_key, resource['id'], metadata)
-
-        # Upload original Lemnatec metadata to new Level_1 dataset
-        md = get_terraref_metadata(all_dsmd)
-        md['raw_data_source'] = host + ("" if host.endswith("/") else "/") + "datasets/" + resource['id']
-        lemna_md = build_metadata(host, self.extractor_info, target_dsid, md, 'dataset')
-        upload_metadata(connector, host, secret_key, target_dsid, lemna_md)
 
         self.end_message()
 
