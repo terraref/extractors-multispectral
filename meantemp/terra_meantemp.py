@@ -7,6 +7,7 @@ import os
 import re
 
 from pyclowder.utils import CheckMessage
+from pyclowder.files import submit_extraction
 from pyclowder.datasets import download_metadata, upload_metadata, get_info
 from terrautils.extractors import TerrarefExtractor, is_latest_file, \
     build_dataset_hierarchy, build_metadata, load_json_file, upload_to_dataset
@@ -65,7 +66,7 @@ class FlirMeanTemp(TerrarefExtractor):
         self.bety_key = self.args.bety_key
 
     def check_message(self, connector, host, secret_key, resource, parameters):
-        if resource['name'].find('fullfield') > -1 and re.match("^.*\d+_ir_.*thumb.tif", resource['name']):
+        if resource['name'].find('fullfield') > -1 and re.match("^.*\d+_ir_.*.tif", resource['name']):
             return CheckMessage.download
 
         return CheckMessage.ignore
@@ -143,7 +144,7 @@ class FlirMeanTemp(TerrarefExtractor):
         geoid  = upload_to_dataset(connector, host, self.clowder_user, self.clowder_pass, resource['parent']['id'], out_geo)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        self.log_info(resource, "uploading metadata to dataset")
+        self.log_info(resource, "updating file metadata")
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
             "total_plots": len(all_plots),
             "plots_processed": successful_plots,
@@ -154,10 +155,12 @@ class FlirMeanTemp(TerrarefExtractor):
         upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
 
         # Trigger downstream extractors
+        self.log_info(resource, "triggering BETY extractor on %s" % fileid)
+        submit_extraction(connector, host, secret_key, fileid, "terra.betydb")
+        self.log_info(resource, "triggering geostreams extractor on %s" % geoid)
+        submit_extraction(connector, host, secret_key, geoid, "terra.geostreams")
 
         self.end_message(resource)
-        submit_extraction(connector, host, secret_key, fileid, "terra.betydb")
-        submit_extraction(connector, host, secret_key, geoid, "terra.geostreams")
 
 if __name__ == "__main__":
     extractor = FlirMeanTemp()
