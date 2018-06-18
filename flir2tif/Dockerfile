@@ -10,7 +10,7 @@ RUN useradd -u 49044 extractor \
     && chown -R extractor /home/extractor
 
 # command to run when starting docker
-COPY entrypoint.sh extractor_info.json *.py /home/extractor/
+COPY entrypoint.sh extractor_info.json *.py temp/FLIRgantry2TC_direct.r temp/LSTC2Lradn10to110.csv /home/extractor/
 
 USER extractor
 ENTRYPOINT ["/home/extractor/entrypoint.sh"]

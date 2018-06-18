@@ -21,7 +21,9 @@ Plot level summaries are named ['surface_temperature'](http://mmisw.org/ont/cf/p
 ## Temperature Conversion
 Written by Andy French.
 
-FLIRgantry2TC_direct.r works by interpolation between cubic polynomials that were fit to the temperature/DN data sets collected in the constant temperature room. You ran the tests at 5,15,25,35,40 and 45C, so there are 6 sets of cubic polynomials. The coefficients are embedded in the R script. The R script reads each DN value one at a time, computes 6 target temperatures corresponding to the 6 ambient room temperatures, then linearly interpolates the target temperature based on the observed ambient temperature. The rest of the routine writes the binary float data plus a header file."
+**FLIRgantry2TC_direct.r** works by interpolation between cubic polynomials that were fit to the temperature/DN data sets collected in the constant temperature room. You ran the tests at 5,15,25,35,40 and 45C, so there are 6 sets of cubic polynomials. The coefficients are embedded in the R script. The R script reads each DN value one at a time, computes 6 target temperatures corresponding to the 6 ambient room temperatures, then linearly interpolates the target temperature based on the observed ambient temperature. The rest of the routine writes the binary float data plus a header file." 
+
+This is currently used in the pipeline.
 
 FLIRgantry2TC.r reads the raw FLIR data and associated ambient temp data and reads an associated csv file (copied at same directory) that's a table of temps and estimated spectral radiances for the camera and converts raw DN to temps as a 4-byte float binary output file.
 

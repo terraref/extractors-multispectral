@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import os
-import logging
 import shutil
 import numpy
 import tempfile
+import subprocess
 
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
@@ -92,8 +92,10 @@ class FlirBin2JpgTiff(TerrarefExtractor):
 
         # Determine output directory
         timestamp = resource['dataset_info']['name'].split(" - ")[1]
-        png_path = self.sensors.create_sensor_path(timestamp, ext='png')
         tiff_path = self.sensors.create_sensor_path(timestamp)
+        png_path = tiff_path.replace(".tif", ".png")
+        tc_path = tiff_path.replace(".tif", "_brightTC.dat")
+        hdr_path = tiff_path.replace(".tif", "_brightTC.hdr")
         uploaded_file_ids = []
 
         target_dsid = build_dataset_hierarchy(host, secret_key, self.clowder_user, self.clowder_pass, self.clowderspace,
@@ -128,10 +130,17 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         if not os.path.exists(tiff_path) or self.overwrite:
             self.log_info(resource, "generating temperature matrix")
             gps_bounds = geojson_to_tuples(metadata['spatial_metadata']['flirIrCamera']['bounding_box'])
+
+            # Use Rscript to convert temperature
+            subprocess.call(['Rscript', 'FLIRgantry2TC_direct.r', bin_file, tc_path, hdr_path])
+
             if skipped_png:
-                raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
+                raw_data = numpy.fromfile(tc_path, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
                 raw_data = numpy.rot90(raw_data, 3)
-            tc = getFlir.rawData_to_temperature(raw_data, metadata) # get temperature
+
+            # TODO: I believe the R script should be called here instead of this operation.
+            # TODO: Then, the resulting DAT file can be read into numpy and saved to GeoTIFF.
+            # tc = getFlir.rawData_to_temperature(raw_data, metadata) # get temperature
 
             self.log_info(resource, "creating & uploading %s" % tiff_path)
             # Rename temporary tif after creation to avoid long path errors

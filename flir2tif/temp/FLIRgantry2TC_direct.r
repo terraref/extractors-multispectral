@@ -2,35 +2,43 @@
 #apply corrections using ambient environmental temperature
 #direct conversion from DN to temperature method
 
+# FLIRgantry2TC_direct.r input.bin output.dat output.hdr
+args = commandArgs(trailingOnly=TRUE)
+
+# test if there is 2 arguments: if not, return an error
+if (length(args)<3) {
+  stop("At least one argument must be supplied (input file).n", call.=FALSE)
+} else {
+  fFLIRfil = args[1]
+  foFLIRfil = args[2]
+  fohdrFLIRfil = args[3]
+}
 
 #specify the raw FLIR camera data file name
-FLIRdir  <- "C:/Data/FLIRcalibrate2018/FLIR_CalRoom_2-12-18/2-12-2018/Room_35C/30CwinN/"
-FLIRfil  <- "00000045.raw"
-fFLIRfil <- paste(FLIRdir,FLIRfil,sep="")
+# FLIRdir  <- "C:/Data/FLIRcalibrate2018/FLIR_CalRoom_2-12-18/2-12-2018/Room_35C/30CwinN/"
+# FLIRfil  <- "00000045.raw"
+# fFLIRfil <- paste(FLIRdir,FLIRfil,sep="")
 
 #create output file name
-len_FLIRfil <- nchar(FLIRfil)
+# len_FLIRfil <- nchar(FLIRfil)
 #assume standard 3 character extension
-oFLIRfil  <- paste(substr(FLIRfil,1,len_FLIRfil-4),"_brightTC_directmethod.dat",sep="")
-foFLIRfil <- paste(FLIRdir,oFLIRfil,sep="")
+# oFLIRfil  <- paste(substr(FLIRfil,1,len_FLIRfil-4),"_brightTC_directmethod.dat",sep="")
+# foFLIRfil <- paste(FLIRdir,oFLIRfil,sep="")
 print(paste("output brightness temperature file to be named:",foFLIRfil))
 
 #create hdr file to go with the output binary file
-len_oFLIRfil <- nchar(oFLIRfil)
-ohdrFLIRfil  <- paste(substr(oFLIRfil,1,len_oFLIRfil-3),"hdr",sep="")
-fohdrFLIRfil <- paste(FLIRdir,ohdrFLIRfil,sep="")
-print(paste("output brightness temperature headere file to be named:",fohdrFLIRfil))
+# len_oFLIRfil <- nchar(oFLIRfil)
+# ohdrFLIRfil  <- paste(substr(oFLIRfil,1,len_oFLIRfil-3),"hdr",sep="")
+# fohdrFLIRfil <- paste(FLIRdir,ohdrFLIRfil,sep="")
+print(paste("output brightness temperature header file to be named:",fohdrFLIRfil))
 
 #create a descriptor to document the image in the header file
 descrip <- "Test Data Feb 2018"
-
 
 #FLIR dimensions
 FLIRnumpixels <- 640
 FLIRnumlines  <- 480
 FLIRtotpix    <- FLIRnumpixels*FLIRnumlines
-
-
 
 #read the ambient temperature Celsius
 #NEED TO POINT to data source for ambient temperature value
@@ -38,13 +46,10 @@ FLIRtotpix    <- FLIRnumpixels*FLIRnumlines
 #tc0 is the ambient temperature in Celsius
 #DN0 is the FLIR digital number at tc0
 #L0 is the spectral radiance value for the FLIR camera at tc0
-
 tc0 <- 25.0 ##set value for now, revise when path to ambient temperature values known
 
-
 #temperature - spectral radiance table file
-
-tkLdir     <- "C:/Data/filterfunctions/broadband/"
+tkLdir     <- "/home/extractor/temp/"
 tkLfil     <- "LSTC2Lradn10to110.csv"
 ftkLfil    <- paste(tkLdir,tkLfil,sep="")
 tkLdat     <- read.table(ftkLfil,header=TRUE,sep=",",skip=4)
@@ -54,9 +59,6 @@ tkLunits                              <- tkLhdrrecs[2]
 tkLresponsefunctioncornersresponses   <- tkLhdrrecs[3]
 tkLresponsefunctioncornerswavelengths <- tkLhdrrecs[4]
 #variable names for tkLdat dataframe: TC, L
-
-
-
 
 #begin function definitions
 
@@ -114,8 +116,6 @@ DN2tcvecf <- function(DNvec,cubeparmmat,tcambvec) {
   return(otcmat)
 }
 
-
-
 #end function definitions
 
 #cubic function coefficients and associated ambient temperature in Celsius
@@ -138,10 +138,6 @@ cubeparmmat[4,] <- c(-135.0648,0.01743997,-5.381814e-7,7.680099e-12)
 cubeparmmat[5,] <- c(-135.6012,0.01719204,-5.115752e-7,7.001709e-12)
 cubeparmmat[6,] <- c(-134.4436,0.01696944,-5.052935e-7,7.029535e-12)
 
-
-
-
-
 #compute ambient DN and L
 #DN0    <- flirtcamb2DN(tc0) #quadratic function fit, calibration range 5 to 45C
 #L0     <- tc2Lf(tc0) #linear interpolation function, computation range -5 to 110C
@@ -153,7 +149,6 @@ flircon   <- file(fFLIRfil,"rb")
 FLIRDNdat <- readBin(flircon,integer(),n=FLIRtotpix,size=2,signed=FALSE,endian="little")
 close(flircon)
 
-
 numvalsFLIR <- length(FLIRDNdat)
 FLIRtc  <- rep(0.0,numvalsFLIR)
 for(fct in 1:numvalsFLIR) {
@@ -164,7 +159,6 @@ for(fct in 1:numvalsFLIR) {
   FLIRtc[fct] <- tcapprox$y
   #print(paste("FLIRDN:",curDN,"FLIRtc:",FLIRtc))
 }
-
 
 #compute the differences between DN0 and observed image data DN
 #delDN <- as.numeric(FLIRDNdat)-DN0
@@ -211,11 +205,3 @@ write(hdr9,fohdrcon,append=TRUE)
 write(hdr10,fohdrcon,append=TRUE)
 close(fohdrcon)
 print(paste("wrote header file:",fohdrFLIRfil))
-
-
-
-
-
-
-
-
