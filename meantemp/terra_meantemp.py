@@ -93,7 +93,7 @@ class FlirMeanTemp(TerrarefExtractor):
 
         self.log_info(resource, "Writing Geostreams CSV to %s" % out_geo)
         geo_file = open(out_geo, 'w')
-        geo_file.write(','.join(['trait', 'lat', 'lon', 'dp_time', 'source', 'value', 'timestamp']) + '\n')
+        geo_file.write(','.join(['site', 'trait', 'lat', 'lon', 'dp_time', 'source', 'value', 'timestamp']) + '\n')
 
         successful_plots = 0
         nan_plots = 0
@@ -115,7 +115,8 @@ class FlirMeanTemp(TerrarefExtractor):
 
             # Create BETY-ready CSV
             if not numpy.isnan(mean_tc):
-                geo_file.write(','.join(['IR Surface Temperature',
+                geo_file.write(','.join([plotname,
+                                         'IR Surface Temperature',
                                          str(centroid_lonlat[1]),
                                          str(centroid_lonlat[0]),
                                          time_fmt,
