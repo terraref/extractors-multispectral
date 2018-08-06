@@ -13,6 +13,7 @@ from terrautils.extractors import TerrarefExtractor, is_latest_file, \
     build_dataset_hierarchy, build_metadata, load_json_file, upload_to_dataset
 from terrautils.gdal import centroid_from_geojson, clip_raster
 from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
+from terrautils.metadata import get_extractor_metadata
 
 
 logging.basicConfig(format='%(asctime)s %(message)s')
@@ -67,9 +68,15 @@ class FlirMeanTemp(TerrarefExtractor):
 
     def check_message(self, connector, host, secret_key, resource, parameters):
         if resource['name'].find('fullfield') > -1 and re.match("^.*\d+_ir_.*.tif", resource['name']):
+            # Check metadata to verify we have what we need
+            md = download_metadata(connector, host, secret_key, resource['id'])
+            if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
+                self.log_skip(resource,"metadata indicates it was already processed")
+                return CheckMessage.ignore
             return CheckMessage.download
-
-        return CheckMessage.ignore
+        else:
+            self.log_skip(resource,"regex not matched for %s" % resource['name'])
+            return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
         self.start_message(resource)
