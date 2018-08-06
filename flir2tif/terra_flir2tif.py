@@ -11,7 +11,7 @@ from pyclowder.files import upload_to_dataset
 from pyclowder.datasets import download_metadata, upload_metadata
 from terrautils.metadata import get_extractor_metadata, get_terraref_metadata, calculate_scan_time
 from terrautils.extractors import TerrarefExtractor, is_latest_file, \
-    build_dataset_hierarchy, build_metadata, load_json_file
+    build_dataset_hierarchy, build_metadata, load_json_file, file_exists
 from terrautils.formats import create_geotiff, create_image
 from terrautils.spatial import geojson_to_tuples
 
@@ -57,8 +57,8 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             timestamp = resource['dataset_info']['name'].split(" - ")[1]
             png_path = self.sensors.get_sensor_path(timestamp, ext='png')
             tiff_path = self.sensors.get_sensor_path(timestamp)
-            out_dir = os.path.dirname(tiff_path)
-            if os.path.exists(png_path) and os.path.exists(tiff_path):
+
+            if file_exists(png_path) and file_exists(tiff_path) and not self.overwrite:
                 self.log_skip(resource, "outputs found in %s" % out_dir)
                 return CheckMessage.ignore
 
@@ -109,8 +109,10 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         upload_metadata(connector, host, secret_key, target_dsid, lemna_md)
 
         skipped_png = False
-        if not os.path.exists(png_path) or self.overwrite:
+
+        if not file_exists(png_path) or self.overwrite:
             self.log_info(resource, "creating & uploading %s" % png_path)
+
             # get raw data from bin file
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
             raw_data = numpy.rot90(raw_data, 3)
@@ -125,7 +127,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         else:
             skipped_png = True
 
-        if not os.path.exists(tiff_path) or self.overwrite:
+        if not file_exists(tiff_path) or self.overwrite:
             self.log_info(resource, "generating temperature matrix")
             gps_bounds = geojson_to_tuples(metadata['spatial_metadata']['flirIrCamera']['bounding_box'])
             if skipped_png:

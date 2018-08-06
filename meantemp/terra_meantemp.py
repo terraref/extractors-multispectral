@@ -7,11 +7,13 @@ import os
 import re
 
 from pyclowder.utils import CheckMessage
+from pyclowder.files import submit_extraction
 from pyclowder.datasets import download_metadata, upload_metadata, get_info
 from terrautils.extractors import TerrarefExtractor, is_latest_file, \
-    build_dataset_hierarchy, build_metadata, load_json_file, upload_to_dataset
+    build_dataset_hierarchy, build_metadata, load_json_file, upload_to_dataset, file_exists
 from terrautils.gdal import centroid_from_geojson, clip_raster
 from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
+from terrautils.metadata import get_extractor_metadata
 
 
 logging.basicConfig(format='%(asctime)s %(message)s')
@@ -65,10 +67,16 @@ class FlirMeanTemp(TerrarefExtractor):
         self.bety_key = self.args.bety_key
 
     def check_message(self, connector, host, secret_key, resource, parameters):
-        if resource['name'].find('fullfield') > -1 and re.match("^.*\d+_ir_.*thumb.tif", resource['name']):
+        if resource['name'].find('fullfield') > -1 and re.match("^.*\d+_ir_.*.tif", resource['name']):
+            # Check metadata to verify we have what we need
+            md = download_metadata(connector, host, secret_key, resource['id'])
+            if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
+                self.log_skip(resource,"metadata indicates it was already processed")
+                return CheckMessage.ignore
             return CheckMessage.download
-
-        return CheckMessage.ignore
+        else:
+            self.log_skip(resource,"regex not matched for %s" % resource['name'])
+            return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
         self.start_message(resource)
@@ -92,7 +100,7 @@ class FlirMeanTemp(TerrarefExtractor):
 
         self.log_info(resource, "Writing Geostreams CSV to %s" % out_geo)
         geo_file = open(out_geo, 'w')
-        geo_file.write(','.join(['trait', 'lat', 'lon', 'dp_time', 'source', 'value', 'timestamp']) + '\n')
+        geo_file.write(','.join(['site', 'trait', 'lat', 'lon', 'dp_time', 'source', 'value', 'timestamp']) + '\n')
 
         successful_plots = 0
         nan_plots = 0
@@ -114,7 +122,8 @@ class FlirMeanTemp(TerrarefExtractor):
 
             # Create BETY-ready CSV
             if not numpy.isnan(mean_tc):
-                geo_file.write(','.join(['IR Surface Temperature',
+                geo_file.write(','.join([plotname,
+                                         'IR Surface Temperature',
                                          str(centroid_lonlat[1]),
                                          str(centroid_lonlat[0]),
                                          time_fmt,
@@ -143,7 +152,7 @@ class FlirMeanTemp(TerrarefExtractor):
         geoid  = upload_to_dataset(connector, host, self.clowder_user, self.clowder_pass, resource['parent']['id'], out_geo)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        self.log_info(resource, "uploading metadata to dataset")
+        self.log_info(resource, "updating file metadata")
         metadata = build_metadata(host, self.extractor_info, resource['parent']['id'], {
             "total_plots": len(all_plots),
             "plots_processed": successful_plots,
@@ -154,10 +163,12 @@ class FlirMeanTemp(TerrarefExtractor):
         upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
 
         # Trigger downstream extractors
+        self.log_info(resource, "triggering BETY extractor on %s" % fileid)
+        submit_extraction(connector, host, secret_key, fileid, "terra.betydb")
+        self.log_info(resource, "triggering geostreams extractor on %s" % geoid)
+        submit_extraction(connector, host, secret_key, geoid, "terra.geostreams")
 
         self.end_message(resource)
-        submit_extraction(connector, host, secret_key, fileid, "terra.betydb")
-        submit_extraction(connector, host, secret_key, geoid, "terra.geostreams")
 
 if __name__ == "__main__":
     extractor = FlirMeanTemp()
