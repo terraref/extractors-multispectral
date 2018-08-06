@@ -40,42 +40,41 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             return CheckMessage.download
 
         if not is_latest_file(resource):
+            self.log_skip(resource, "not latest file")
             return CheckMessage.ignore
 
-        # Check for an ir.BIN file and metadata before beginning processing
+        # Check for an ir.BIN file before beginning processing
         found_ir = None
-        found_md = None
         for f in resource['files']:
             if 'filename' in f and f['filename'].endswith('_ir.bin'):
                 found_ir = f['filepath']
-            elif 'filename' in f and f['filename'].endswith('_metadata.json'):
-                found_md = f['filepath']
+        if not (found_ir):
+            self.log_skip(resource, "IR bin file not found")
+            return CheckMessage.ignore
 
-        if found_ir:
-            # Check if outputs already exist
+        # Check if outputs already exist
+        if not self.overwrite:
             timestamp = resource['dataset_info']['name'].split(" - ")[1]
             png_path = self.sensors.get_sensor_path(timestamp, ext='png')
             tiff_path = self.sensors.get_sensor_path(timestamp)
 
             if file_exists(png_path) and file_exists(tiff_path) and not self.overwrite:
-                logging.getLogger(__name__).info("skipping dataset %s, outputs already exist" % resource['id'])
+                self.log_skip(resource, "outputs found in %s" % out_dir)
                 return CheckMessage.ignore
 
-            # If we don't find _metadata.json file, check if we have metadata attached to dataset instead
-            if not found_md:
-                md = download_metadata(connector, host, secret_key, resource['id'])
-                if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
-                    logging.getLogger(__name__).info("skipping dataset %s, already processed" % resource['id'])
-                    return CheckMessage.ignore
-                if get_terraref_metadata(md):
-                    return CheckMessage.download
-                return CheckMessage.ignore
-            else:
-                return CheckMessage.download
-        return CheckMessage.ignore
+        # Check metadata to verify we have what we need
+        md = download_metadata(connector, host, secret_key, resource['id'])
+        if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
+            self.log_skip("metadata indicates it was already processed")
+            return CheckMessage.ignore
+        if get_terraref_metadata(md):
+            return CheckMessage.download
+        else:
+            self.log_skip("no terraref metadata found")
+            return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
-        self.start_message()
+        self.start_message(resource)
 
         # Get BIN file and metadata
         bin_file, metadata = None, None
@@ -88,8 +87,8 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             elif f.endswith('_ir.bin'):
                 bin_file = f
         if None in [bin_file, metadata]:
-            logging.getLogger(__name__).error('could not find all both of ir.bin/metadata')
-            return
+            self.log_error(resource, "could not locate each of ir+metadata in processing")
+            raise ValueError("could not locate each of ir+metadata in processing")
 
         # Determine output directory
         timestamp = resource['dataset_info']['name'].split(" - ")[1]
@@ -106,15 +105,19 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         md = get_terraref_metadata(all_dsmd)
         md['raw_data_source'] = host + ("" if host.endswith("/") else "/") + "datasets/" + resource['id']
         lemna_md = build_metadata(host, self.extractor_info, target_dsid, md, 'dataset')
+        self.log_info(resource, "uploading LemnaTec metadata")
         upload_metadata(connector, host, secret_key, target_dsid, lemna_md)
 
         skipped_png = False
+
         if not file_exists(png_path) or self.overwrite:
-            logging.getLogger(__name__).info("Generating %s" % png_path)
+            self.log_info(resource, "creating & uploading %s" % png_path)
+
             # get raw data from bin file
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
             raw_data = numpy.rot90(raw_data, 3)
             create_image(raw_data, png_path, self.scale_values)
+
             # Only upload the newly generated file to Clowder if it isn't already in dataset
             if png_path not in resource["local_paths"]:
                 fileid = upload_to_dataset(connector, host, secret_key, target_dsid, png_path)
@@ -125,14 +128,14 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             skipped_png = True
 
         if not file_exists(tiff_path) or self.overwrite:
-            logging.getLogger(__name__).info("Generating temperature matrix")
+            self.log_info(resource, "generating temperature matrix")
             gps_bounds = geojson_to_tuples(metadata['spatial_metadata']['flirIrCamera']['bounding_box'])
             if skipped_png:
                 raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
                 raw_data = numpy.rot90(raw_data, 3)
             tc = getFlir.rawData_to_temperature(raw_data, metadata) # get temperature
 
-            logging.getLogger(__name__).info("Creating %s" % tiff_path)
+            self.log_info(resource, "creating & uploading %s" % tiff_path)
             # Rename temporary tif after creation to avoid long path errors
             out_tmp_tiff = os.path.join(tempfile.gettempdir(), resource['id'].encode('utf8'))
             create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True, self.extractor_info, metadata)
@@ -146,9 +149,10 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         metadata = build_metadata(host, self.extractor_info, target_dsid, {
             "files_created": uploaded_file_ids}, 'dataset')
+        self.log_info(resource, "uploading extractor metadata")
         upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
-        self.end_message()
+        self.end_message(resource)
 
 if __name__ == "__main__":
     extractor = FlirBin2JpgTiff()
