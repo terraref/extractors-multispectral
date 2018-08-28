@@ -27,3 +27,8 @@ _Output_
 
   - hist.png is the Fv/Fm histogram
   - imgMap.png is the pseudocolored image
+
+## See also 
+
+* https://github.com/terraref/computing-pipeline/issues/240
+* https://github.com/terraref/computing-pipeline/issues/216
