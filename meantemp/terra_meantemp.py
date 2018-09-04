@@ -5,6 +5,7 @@ import numpy
 import json
 import os
 import re
+import yaml
 
 from pyclowder.utils import CheckMessage
 from pyclowder.files import submit_extraction
@@ -114,7 +115,7 @@ class FlirMeanTemp(TerrarefExtractor):
             centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
 
             # Use GeoJSON string to clip full field to this plot
-            (pxarray, geotrans) = clip_raster(resource['local_paths'][0], bounds)
+            (pxarray, geotrans) = clip_raster(resource['local_paths'][0], [yaml.safe_load(bounds)])
 
             # Filter out any
             pxarray[pxarray < 0] = numpy.nan
