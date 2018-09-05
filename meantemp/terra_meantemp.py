@@ -15,6 +15,7 @@ from terrautils.extractors import TerrarefExtractor, is_latest_file, \
 from terrautils.gdal import centroid_from_geojson, clip_raster
 from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
 from terrautils.metadata import get_extractor_metadata
+from terrautils.spatial import geojson_to_tuples_betydb
 
 
 logging.basicConfig(format='%(asctime)s %(message)s')
@@ -112,10 +113,11 @@ class FlirMeanTemp(TerrarefExtractor):
                 continue
 
             bounds = all_plots[plotname]
+            tuples = geojson_to_tuples_betydb(yaml.safe_load(bounds))
             centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
 
             # Use GeoJSON string to clip full field to this plot
-            (pxarray, geotrans) = clip_raster(resource['local_paths'][0], [yaml.safe_load(bounds)])
+            pxarray = clip_raster(resource['local_paths'][0], tuples)
 
             # Filter out any
             pxarray[pxarray < 0] = numpy.nan
