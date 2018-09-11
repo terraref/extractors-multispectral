@@ -1,4 +1,4 @@
-FROM terraref/terrautils
+FROM terraref/terrautils:1.3
 MAINTAINER Max Burnette <mburnet2@illinois.edu>
 
 # TODO: Dockerhub automated builds from tags
@@ -10,7 +10,7 @@ RUN useradd -u 49044 extractor \
     && chown -R extractor /home/extractor
 
 # command to run when starting docker
-COPY entrypoint.sh extractor_info.json *.py /home/extractor/
+COPY entrypoint.sh extractor_info.json terra_psii2png.py /home/extractor/
 
 USER extractor
 ENTRYPOINT ["/home/extractor/entrypoint.sh"]
@@ -23,5 +23,4 @@ CMD ["extractor"]
 ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
     RABBITMQ_QUEUE="terra.multispectral.psii2png" \
-    MOUNTED_PATHS='{"home/clowder/sites":"/home/extractor/sites"}' \
     MAIN_SCRIPT="terra_psii2png.py"

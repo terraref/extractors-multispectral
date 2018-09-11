@@ -23,16 +23,22 @@ class PSIIBin2Png(TerrarefExtractor):
         # parse command line and load default logging configuration
         self.setup(sensor='ps2_png')
 
+    def get_image_dimensions(self, metadata):
+        """Returns (image width, image height)"""
+
+        if 'sensor_fixed_metadata' in metadata:
+            dims = metadata['sensor_fixed_metadata']['camera_resolution']
+            return dims.split("x")
+        else:
+            # Default based on original fixed metadata
+            return (1936, 1216)
+
     def load_png(self, file_path, height, width):
         """Load PNG image into a numpy array"""
         im = Image.open(file_path)
         return np.array(im).astype('uint8')
 
-    def analyze(self, frames, hist_path, coloredImg_path):
-
-        # TODO: Where do these dimensions come from?
-        img_width = 1936
-        img_height = 1216
+    def analyze(self, img_width, img_height, frames, hist_path, coloredImg_path):
 
         fdark = self.load_png(frames[0], img_height, img_width)
         fmin = self.load_png(frames[1], img_height, img_width)
@@ -130,7 +136,7 @@ class PSIIBin2Png(TerrarefExtractor):
             # First check metadata attached to dataset in Clowder for item of interest
             if f.endswith('_dataset_metadata.json'):
                 all_dsmd = load_json_file(f)
-                metadata = get_extractor_metadata(all_dsmd)
+                metadata = get_terraref_metadata(all_dsmd, "ps2Top")
             # Otherwise, check if metadata was uploaded as a .json file
             elif f.endswith('_metadata.json') and f.find('/_metadata.json') == -1 and metadata is None:
                 metadata = load_json_file(f)
@@ -154,9 +160,7 @@ class PSIIBin2Png(TerrarefExtractor):
                                           self.sensors.get_display_name(), timestamp[:4], timestamp[:7],
                                           timestamp[:10], leaf_ds_name=resource['dataset_info']['name'])
 
-        img_width = 1936
-        img_height = 1216
-
+        (img_width, img_height) = self.get_image_dimensions(metadata)
         gps_bounds = geojson_to_tuples(metadata['spatial_metadata']['ps2Top']['bounding_box'])
 
         png_frames = {}
@@ -169,7 +173,6 @@ class PSIIBin2Png(TerrarefExtractor):
             if not os.path.exists(png_path) or self.overwrite:
                 self.log_info(resource, "generating and uploading %s" % png_path)
                 pixels = np.fromfile(frames[ind], np.dtype('uint8')).reshape([img_height, img_width])
-
                 create_image(pixels, png_path)
                 create_geotiff(pixels, gps_bounds, tif_path, None, False, self.extractor_info, metadata)
 
@@ -182,10 +185,10 @@ class PSIIBin2Png(TerrarefExtractor):
         # Generate aggregate outputs
         self.log_info(resource, "generating aggregates")
         if not (os.path.exists(hist_path) and os.path.exists(coloredImg_path)) or self.overwrite:
-            self.analyze(png_frames, hist_path, coloredImg_path)
+            # TODO: Coerce histogram and pseudocolor to geotiff?
+            self.analyze(img_width, img_height, png_frames, hist_path, coloredImg_path)
             self.created += 2
-            self.bytes += os.path.getsize(hist_path)
-            self.bytes += os.path.getsize(coloredImg_path)
+            self.bytes += os.path.getsize(hist_path) + os.path.getsize(coloredImg_path)
         if hist_path not in resource['local_paths']:
             fileid = upload_to_dataset(connector, host, secret_key, target_dsid, hist_path)
             uploaded_file_ids.append(fileid)
