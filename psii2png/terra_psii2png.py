@@ -8,10 +8,10 @@ from matplotlib import pyplot as plt
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
 from pyclowder.datasets import download_metadata, upload_metadata
-from terrautils.extractors import TerrarefExtractor, is_latest_file, load_json_file, create_image, \
+from terrautils.extractors import TerrarefExtractor, is_latest_file, load_json_file, \
     build_metadata, build_dataset_hierarchy
-from terraref.metadata import get_extractor_metadata, get_terraref_metadata
-from terrautils.formats import create_geotiff
+from terrautils.metadata import get_extractor_metadata, get_terraref_metadata
+from terrautils.formats import create_geotiff, create_image
 from terrautils.spatial import geojson_to_tuples
 
 
