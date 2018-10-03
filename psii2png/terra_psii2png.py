@@ -55,7 +55,10 @@ class PSIIBin2Png(TerrarefExtractor):
         # Calculate F-variable (F-max - F-min)
         fv = np.subtract(fmax, fmin)
         # Calculate Fv/Fm (F-variable / F-max)
-        fvfm = np.divide(fv.astype('float'), fmax.astype('float'))
+        if fmax.astype('float') == 0:
+            fvfm = 0
+        else:
+            fvfm = np.divide(fv.astype('float'), fmax.astype('float'))
         # Fv/Fm will generate invalid values, such as division by zero
         # Convert invalid values to zero. Valid values will be between 0 and 1
         fvfm[np.where(np.isnan(fvfm))] = 0
@@ -142,9 +145,9 @@ class PSIIBin2Png(TerrarefExtractor):
         frames = {}
         for ind in range(0, 101):
             format_ind = "{0:0>4}".format(ind) # e.g. 1 becomes 0001
-            for f in resource['files']:
-                if f['filename'].endswith(format_ind+'.bin'):
-                    frames[ind] = f['filename']
+            for f in resource['local_paths']:
+                if f.endswith(format_ind+'.bin'):
+                    frames[ind] = f
         if None in [metadata] or len(frames) < 101:
             self.log_error(resource, 'could not find all of frames/metadata')
             return
@@ -155,12 +158,15 @@ class PSIIBin2Png(TerrarefExtractor):
         coloredImg_path = self.sensors.create_sensor_path(timestamp, opts=['combined_pseudocolored'])
         uploaded_file_ids = []
 
-        target_dsid = build_dataset_hierarchy(connector, host, secret_key, self.clowderspace,
-                                          self.sensors.get_display_name(), timestamp[:4], timestamp[:7],
-                                          timestamp[:10], leaf_ds_name=resource['dataset_info']['name'])
+        target_dsid = build_dataset_hierarchy(host, secret_key, self.clowder_user, self.clowder_pass, self.clowderspace,
+                                              self.sensors.get_display_name(),
+                                              timestamp[:4], timestamp[5:7], timestamp[8:10],
+                                              leaf_ds_name=self.sensors.get_display_name()+' - '+timestamp)
 
         (img_width, img_height) = self.get_image_dimensions(metadata)
         gps_bounds = geojson_to_tuples(metadata['spatial_metadata']['ps2Top']['bounding_box'])
+
+        self.log_info(resource, "image dimensions (w, h): (%s, %s)" % (img_width, img_height))
 
         png_frames = {}
         # skip 0101.bin since 101 is an XML file that lists the frame times
@@ -171,7 +177,7 @@ class PSIIBin2Png(TerrarefExtractor):
             png_frames[ind] = png_path
             if not os.path.exists(png_path) or self.overwrite:
                 self.log_info(resource, "generating and uploading %s" % png_path)
-                pixels = np.fromfile(frames[ind], np.dtype('uint8')).reshape([img_height, img_width])
+                pixels = np.fromfile(frames[ind], np.dtype('uint8')).reshape([int(img_height), int(img_width)])
                 create_image(pixels, png_path)
                 create_geotiff(pixels, gps_bounds, tif_path, None, False, self.extractor_info, metadata)
 
@@ -185,7 +191,7 @@ class PSIIBin2Png(TerrarefExtractor):
         self.log_info(resource, "generating aggregates")
         if not (os.path.exists(hist_path) and os.path.exists(coloredImg_path)) or self.overwrite:
             # TODO: Coerce histogram and pseudocolor to geotiff?
-            self.analyze(img_width, img_height, png_frames, hist_path, coloredImg_path)
+            self.analyze(int(img_width), int(img_height), png_frames, hist_path, coloredImg_path)
             self.created += 2
             self.bytes += os.path.getsize(hist_path) + os.path.getsize(coloredImg_path)
         if hist_path not in resource['local_paths']:
