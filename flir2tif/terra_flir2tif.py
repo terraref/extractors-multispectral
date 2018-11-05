@@ -4,6 +4,8 @@ import os
 import shutil
 import numpy
 import tempfile
+import yaml
+import json
 
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
@@ -12,8 +14,10 @@ from terrautils.metadata import get_extractor_metadata, get_terraref_metadata, c
 from terrautils.extractors import TerrarefExtractor, is_latest_file, check_file_in_dataset, \
     build_dataset_hierarchy_crawl, build_metadata, load_json_file, file_exists, contains_required_files
 from terrautils.formats import create_geotiff, create_image
-from terrautils.spatial import geojson_to_tuples
+from terrautils.spatial import geojson_to_tuples, geojson_to_tuples_betydb
 from terrautils.lemnatec import _get_experiment_metadata
+from terrautils.gdal import centroid_from_geojson, clip_raster
+from terrautils.betydb import add_arguments, get_site_boundaries
 
 import Get_FLIR as getFlir
 
@@ -22,6 +26,8 @@ def add_local_arguments(parser):
     # add any additional arguments to parser
     parser.add_argument('--scale', dest="scale_values", type=bool, nargs='?', default=True,
                         help="scale individual flir images based on px range as opposed to full field stitch")
+
+    add_arguments(parser)
 
 class FlirBin2JpgTiff(TerrarefExtractor):
     def __init__(self):
@@ -99,7 +105,6 @@ class FlirBin2JpgTiff(TerrarefExtractor):
                     break
         else:
             # Try to determine experiment data dynamically
-            # TODO: Mount sensor metadata & BETY caching for this bit
             expmd = _get_experiment_metadata(timestamp.split("__")[0], 'flirIrCamera')
             if len(expmd) > 0:
                 updated_experiment = True
@@ -178,6 +183,24 @@ class FlirBin2JpgTiff(TerrarefExtractor):
                 uploaded_file_ids.append(host + ("" if host.endswith("/") else "/") + "files/" + fileid)
             self.created += 1
             self.bytes += os.path.getsize(tiff_path)
+
+        # Plot dir is the day under Level_1_Plots/ir_geotiff/day
+        self.log_info(resource, "Attempting to clip into plot shards")
+        plot_path = os.path.dirname(os.path.dirname(tiff_path.replace("/Level_1/", "/Level_1_Plots/")))
+        shard_name = os.path.basename(tiff_path)
+
+        all_plots = get_site_boundaries(timestamp, city='Maricopa')
+        for plotname in all_plots:
+            if plotname.find("KSU") > -1:
+                continue
+
+            bounds = all_plots[plotname]
+            tuples = geojson_to_tuples_betydb(yaml.safe_load(bounds))
+            shard_path = os.path.join(plot_path, plotname, shard_name)
+            if not os.path.exists(os.path.dirname(shard_path)):
+                os.makedirs(os.path.dirname(shard_path))
+            clip_raster(tiff_path, tuples, out_path=shard_path)
+
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         extractor_md = build_metadata(host, self.extractor_info, target_dsid, {
