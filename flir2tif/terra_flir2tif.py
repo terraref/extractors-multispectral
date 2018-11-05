@@ -9,10 +9,11 @@ from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
 from pyclowder.datasets import download_metadata, upload_metadata, remove_metadata
 from terrautils.metadata import get_extractor_metadata, get_terraref_metadata, calculate_scan_time
-from terrautils.extractors import TerrarefExtractor, is_latest_file, delete_file, \
-    build_dataset_hierarchy, build_metadata, load_json_file, file_exists, contains_required_files
+from terrautils.extractors import TerrarefExtractor, is_latest_file, check_file_in_dataset, \
+    build_dataset_hierarchy_crawl, build_metadata, load_json_file, file_exists, contains_required_files
 from terrautils.formats import create_geotiff, create_image
 from terrautils.spatial import geojson_to_tuples
+from terrautils.lemnatec import _get_experiment_metadata
 
 import Get_FLIR as getFlir
 
@@ -52,7 +53,8 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         if get_terraref_metadata(md):
             if get_extractor_metadata(md, self.extractor_info['name'], self.extractor_info['version']):
                 # Make sure outputs properly exist
-                tif = sensor.get_sensor_path(timestamp, sensor="flirIrCamera")
+                timestamp = resource['dataset_info']['name'].split(" - ")[1]
+                tif = self.sensors.get_sensor_path(timestamp, sensor="flirIrCamera")
                 png = tif.replace(".tif", ".png")
                 if file_exists(png) and file_exists(tif):
                     self.log_skip(resource, "metadata v%s and outputs already exist" % self.extractor_info['version'])
@@ -79,32 +81,61 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         if None in [bin_file, terra_md_full]:
             raise ValueError("could not locate each of ir+metadata in processing")
 
+        timestamp = resource['dataset_info']['name'].split(" - ")[1]
+
         # Fetch experiment name from terra metadata
-        if 'experiment_metadata' in terra_md_full and 'name' in terra_md_full['experiment_metadata']:
-            experiment_name = terra_md_full['experiment_metadata']['name']
-            if ":" in experiment_name:
-                season_name = experiment_name.split(": ")[0]
-                experiment_name = experiment_name.split(": ")[1]
-            else:
-                season_name = None
+        season_name = None
+        experiment_name = None
+        updated_experiment = False
+        if 'experiment_metadata' in terra_md_full and len(terra_md_full['experiment_metadata']) > 0:
+            for experiment in terra_md_full['experiment_metadata']:
+                if 'name' in experiment:
+                    if ":" in experiment['name']:
+                        season_name = experiment['name'].split(": ")[0]
+                        experiment_name = experiment['name'].split(": ")[1]
+                    else:
+                        experiment_name = experiment['name']
+                        season_name = None
+                    break
         else:
-            season_name = None
-            experiment_name = None
+            # Try to determine experiment data dynamically
+            # TODO: Mount sensor metadata & BETY caching for this bit
+            expmd = _get_experiment_metadata(timestamp.split("__")[0], 'flirIrCamera')
+            if len(expmd) > 0:
+                updated_experiment = True
+                for experiment in expmd:
+                    if 'name' in experiment:
+                        if ":" in experiment['name']:
+                            season_name = experiment['name'].split(": ")[0]
+                            experiment_name = experiment['name'].split(": ")[1]
+                        else:
+                            experiment_name = experiment['name']
+                            season_name = None
+                        break
+        if season_name is None:
+            season_name = 'Unknown Season'
+        if experiment_name is None:
+            experiment_name = 'Unknown Experiment'
 
         # Determine output directory
-        timestamp = resource['dataset_info']['name'].split(" - ")[1]
         tiff_path = self.sensors.create_sensor_path(timestamp)
         png_path = tiff_path.replace(".tif", ".png")
 
-        target_dsid = build_dataset_hierarchy(host, secret_key, self.clowder_user, self.clowder_pass, self.clowderspace,
+        self.log_info(resource, "Hierarchy: %s / %s / %s / %s / %s / %s / %s" % (
+            season_name, experiment_name, self.sensors.get_display_name(), timestamp[:4], timestamp[5:7], timestamp[8:10], timestamp
+        ))
+        target_dsid = build_dataset_hierarchy_crawl(host, secret_key, self.clowder_user, self.clowder_pass, self.clowderspace,
                                               season_name, experiment_name, self.sensors.get_display_name(),
                                               timestamp[:4], timestamp[5:7], timestamp[8:10],
                                               leaf_ds_name=self.sensors.get_display_name()+' - '+timestamp)
+
         uploaded_file_ids = []
 
         self.log_info(resource, "uploading LemnaTec metadata to ds [%s]" % target_dsid)
         remove_metadata(connector, host, secret_key, target_dsid, self.extractor_info['name'])
         terra_md_trim = get_terraref_metadata(all_dsmd)
+        if updated_experiment:
+            terra_md_trim['experiment_metadata'] = expmd
         terra_md_trim['raw_data_source'] = host + ("" if host.endswith("/") else "/") + "datasets/" + resource['id']
         level1_md = build_metadata(host, self.extractor_info, target_dsid, terra_md_trim, 'dataset')
         upload_metadata(connector, host, secret_key, target_dsid, level1_md)
@@ -119,12 +150,8 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             create_image(raw_data, png_path, self.scale_values)
 
             # Only upload the newly generated file to Clowder if it isn't already in dataset
-            if png_path not in resource["local_paths"] or self.overwrite:
-                if png_path in resource["local_paths"]:
-                    for targ_file in resource["files"]:
-                        if targ_file['filename'] == os.path.basename(png_path):
-                            self.log_info(resource, "Deleting file %s [%s]" % (targ_file['filename'], targ_file['id']))
-                            delete_file(host, secret_key, targ_file['id'])
+            found_in_dest = check_file_in_dataset(connector, host, secret_key, target_dsid, png_path, remove=self.overwrite)
+            if not found_in_dest or self.overwrite:
                 fileid = upload_to_dataset(connector, host, secret_key, target_dsid, png_path)
                 uploaded_file_ids.append(host + ("" if host.endswith("/") else "/") + "files/" + fileid)
             self.created += 1
@@ -145,12 +172,8 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             out_tmp_tiff = os.path.join(tempfile.gettempdir(), resource['id'].encode('utf8'))
             create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True, self.extractor_info, terra_md_full)
             shutil.move(out_tmp_tiff, tiff_path)
-            if tiff_path not in resource["local_paths"] or self.overwrite:
-                if tiff_path in resource["local_paths"]:
-                    for targ_file in resource["files"]:
-                        if targ_file['filename'] == os.path.basename(tiff_path):
-                            self.log_info(resource, "Deleting file %s [%s]" % (targ_file['filename'], targ_file['id']))
-                            delete_file(host, secret_key, targ_file['id'])
+            found_in_dest = check_file_in_dataset(connector, host, secret_key, target_dsid, tiff_path, remove=self.overwrite)
+            if not found_in_dest or self.overwrite:
                 fileid = upload_to_dataset(connector, host, secret_key, target_dsid, tiff_path)
                 uploaded_file_ids.append(host + ("" if host.endswith("/") else "/") + "files/" + fileid)
             self.created += 1

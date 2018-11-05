@@ -3,11 +3,8 @@ MAINTAINER Max Burnette <mburnet2@illinois.edu>
 
 # TODO: Dockerhub automated builds from tags
 
-# Create user with necessary user ID for writing permissions on Roger
-RUN useradd -u 49044 extractor \
-    && mkdir -p /home/extractor/sites/ua-mac/raw_data \
-    && mkdir -p /home/extractor/sites/ua-mac/Level_1/ir_geotiff \
-    && chown -R extractor /home/extractor
+# Create user with necessary user ID for writing permissions on filesystem
+RUN useradd -u 49044 extractor
 
 # command to run when starting docker
 COPY entrypoint.sh extractor_info.json *.py /home/extractor/
@@ -24,4 +21,5 @@ ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
     RABBITMQ_QUEUE="terra.multispectral.flir2tif" \
     MOUNTED_PATHS='{"home/clowder/sites":"/home/extractor/sites"}' \
-    MAIN_SCRIPT="terra_flir2tif.py"
+    MAIN_SCRIPT="terra_flir2tif.py" \
+    CLOWDER_SPACE="5bdc8f174f0cb2fdaaf3148e"
