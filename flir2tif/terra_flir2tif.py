@@ -185,22 +185,23 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             self.bytes += os.path.getsize(tiff_path)
 
         # Plot dir is the day under Level_1_Plots/ir_geotiff/day
-        self.log_info(resource, "Attempting to clip into plot shards")
-        plot_path = os.path.dirname(os.path.dirname(tiff_path.replace("/Level_1/", "/Level_1_Plots/")))
-        shard_name = os.path.basename(tiff_path)
+        # TODO: Move to separate extractor
+        if False:
+            self.log_info(resource, "Attempting to clip into plot shards")
+            plot_path = os.path.dirname(os.path.dirname(tiff_path.replace("/Level_1/", "/Level_1_Plots/")))
+            shard_name = os.path.basename(tiff_path)
 
-        all_plots = get_site_boundaries(timestamp, city='Maricopa')
-        for plotname in all_plots:
-            if plotname.find("KSU") > -1:
-                continue
+            all_plots = get_site_boundaries(timestamp.split("__")[0], city='Maricopa')
+            for plotname in all_plots:
+                if plotname.find("KSU") > -1:
+                    continue
 
-            bounds = all_plots[plotname]
-            tuples = geojson_to_tuples_betydb(yaml.safe_load(bounds))
-            shard_path = os.path.join(plot_path, plotname, shard_name)
-            if not os.path.exists(os.path.dirname(shard_path)):
-                os.makedirs(os.path.dirname(shard_path))
-            clip_raster(tiff_path, tuples, out_path=shard_path)
-
+                bounds = all_plots[plotname]
+                tuples = geojson_to_tuples_betydb(yaml.safe_load(bounds))
+                shard_path = os.path.join(plot_path, plotname, shard_name)
+                if not os.path.exists(os.path.dirname(shard_path)):
+                    os.makedirs(os.path.dirname(shard_path))
+                clip_raster(tiff_path, tuples, out_path=shard_path)
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
         extractor_md = build_metadata(host, self.extractor_info, target_dsid, {
