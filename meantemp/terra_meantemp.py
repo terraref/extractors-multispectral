@@ -87,11 +87,8 @@ class FlirMeanTemp(TerrarefExtractor):
         ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
         timestamp = ds_info['name'].split(" - ")[1]
         time_fmt = timestamp+"T12:00:00-07:00"
-        rootdir = self.sensors.create_sensor_path(timestamp, sensor="fullfield", ext=".csv")
-        out_csv = os.path.join(os.path.dirname(rootdir),
-                               resource['name'].replace(".tif", "_meantemp_bety.csv"))
-        out_geo = os.path.join(os.path.dirname(rootdir),
-                               resource['name'].replace(".tif", "_meantemp_geo.csv"))
+        out_csv = self.sensors.create_sensor_path(timestamp, sensor="ir_meantemp", opts=["bety"])
+        out_geo = out_csv.replace("_bety", "_geo")
 
         # TODO: What should happen if CSV already exists? If we're here, there's no completed metadata...
 
