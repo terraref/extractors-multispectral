@@ -20,6 +20,5 @@ CMD ["extractor"]
 ENV RABBITMQ_EXCHANGE="terra" \
     RABBITMQ_VHOST="%2F" \
     RABBITMQ_QUEUE="terra.multispectral.flir2tif" \
-    MOUNTED_PATHS='{"home/clowder/sites":"/home/extractor/sites"}' \
     MAIN_SCRIPT="terra_flir2tif.py" \
     CLOWDER_SPACE="5bdc8f174f0cb2fdaaf3148e"
