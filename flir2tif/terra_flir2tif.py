@@ -85,7 +85,7 @@ class FlirBin2JpgTiff(TerrarefExtractor):
         timestamp = resource['dataset_info']['name'].split(" - ")[1]
 
         # Fetch experiment name from terra metadata
-        season_name, experiment_name, updated_experiment = get_season_and_experiment(timestamp, terra_md_full)
+        season_name, experiment_name, updated_experiment = get_season_and_experiment(timestamp, 'flirIrCamera', terra_md_full)
         if None in [season_name, experiment_name]:
             raise ValueError("season and experiment could not be determined")
 
