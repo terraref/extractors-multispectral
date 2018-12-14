@@ -3,7 +3,6 @@
 import logging
 import numpy
 import json
-import os
 import re
 import yaml
 
@@ -12,10 +11,9 @@ from pyclowder.files import submit_extraction
 from pyclowder.datasets import download_metadata, upload_metadata, get_info
 from terrautils.extractors import TerrarefExtractor, is_latest_file, \
     build_dataset_hierarchy, build_metadata, load_json_file, upload_to_dataset, file_exists
-from terrautils.gdal import centroid_from_geojson, clip_raster
 from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
 from terrautils.metadata import get_extractor_metadata
-from terrautils.spatial import geojson_to_tuples_betydb
+from terrautils.spatial import geojson_to_tuples_betydb, centroid_from_geojson, clip_raster
 
 
 logging.basicConfig(format='%(asctime)s %(message)s')
