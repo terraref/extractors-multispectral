@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import logging
 import numpy
 import json
 import re
@@ -15,8 +14,6 @@ from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
 from terrautils.metadata import get_extractor_metadata
 from terrautils.spatial import geojson_to_tuples_betydb, centroid_from_geojson, clip_raster
 
-
-logging.basicConfig(format='%(asctime)s %(message)s')
 
 def add_local_arguments(parser):
     # add any additional arguments to parser
