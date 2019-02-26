@@ -7,7 +7,7 @@ import tempfile
 
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
-from pyclowder.datasets import download_metadata, upload_metadata, remove_metadata
+from pyclowder.datasets import download_metadata, upload_metadata, remove_metadata, submit_extraction
 from terrautils.metadata import get_extractor_metadata, get_terraref_metadata, calculate_scan_time, \
     get_season_and_experiment
 from terrautils.extractors import TerrarefExtractor, is_latest_file, check_file_in_dataset, \
@@ -148,15 +148,18 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             self.created += 1
             self.bytes += os.path.getsize(tiff_path)
 
-        # TODO: Submit this dataset to the plot-clipper extractor
+        # Trigger additional extractors
+        self.log_info(resource, "triggering downstream extractors")
+        submit_extraction(connector, host, secret_key, target_dsid, "terra.plotclipper_tif")
 
         # Tell Clowder this is completed so subsequent file updates don't daisy-chain
-        extractor_md = build_metadata(host, self.extractor_info, target_dsid, {
-            "files_created": uploaded_file_ids
-        }, 'dataset')
-        self.log_info(resource, "uploading extractor metadata to raw dataset")
-        remove_metadata(connector, host, secret_key, resource['id'], self.extractor_info['name'])
-        upload_metadata(connector, host, secret_key, resource['id'], extractor_md)
+        if len(uploaded_file_ids) > 0:
+            extractor_md = build_metadata(host, self.extractor_info, target_dsid, {
+                "files_created": uploaded_file_ids
+            }, 'dataset')
+            self.log_info(resource, "uploading extractor metadata to raw dataset")
+            remove_metadata(connector, host, secret_key, resource['id'], self.extractor_info['name'])
+            upload_metadata(connector, host, secret_key, resource['id'], extractor_md)
 
         self.end_message(resource)
 
