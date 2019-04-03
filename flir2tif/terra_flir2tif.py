@@ -117,16 +117,15 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
             raw_data = numpy.rot90(raw_data, 3)
             create_image(raw_data, png_path, self.scale_values)
-
-            # Only upload the newly generated file to Clowder if it isn't already in dataset
-            found_in_dest = check_file_in_dataset(connector, host, secret_key, target_dsid, png_path, remove=self.overwrite)
-            if not found_in_dest or self.overwrite:
-                fileid = upload_to_dataset(connector, host, secret_key, target_dsid, png_path)
-                uploaded_file_ids.append(host + ("" if host.endswith("/") else "/") + "files/" + fileid)
             self.created += 1
             self.bytes += os.path.getsize(png_path)
         else:
             skipped_png = True
+        # Only upload the newly generated file to Clowder if it isn't already in dataset
+        found_in_dest = check_file_in_dataset(connector, host, secret_key, target_dsid, png_path, remove=self.overwrite)
+        if not found_in_dest or self.overwrite:
+            fileid = upload_to_dataset(connector, host, secret_key, target_dsid, png_path)
+            uploaded_file_ids.append(host + ("" if host.endswith("/") else "/") + "files/" + fileid)
 
         if not file_exists(tiff_path) or self.overwrite:
             # Generate temperature matrix and perform actual processing
@@ -136,17 +135,14 @@ class FlirBin2JpgTiff(TerrarefExtractor):
                 raw_data = numpy.fromfile(bin_file, numpy.dtype('<u2')).reshape([480, 640]).astype('float')
                 raw_data = numpy.rot90(raw_data, 3)
             tc = getFlir.rawData_to_temperature(raw_data, terra_md_full) # get temperature
-            out_tmp_tiff = os.path.join(tempfile.gettempdir(), resource['id'].encode('utf8'))
-            create_geotiff(tc, gps_bounds, out_tmp_tiff, None, True, self.extractor_info, terra_md_full)
-
-            # Rename output.tif after creation to avoid long path errors
-            shutil.move(out_tmp_tiff, tiff_path)
-            found_in_dest = check_file_in_dataset(connector, host, secret_key, target_dsid, tiff_path, remove=self.overwrite)
-            if not found_in_dest or self.overwrite:
-                fileid = upload_to_dataset(connector, host, secret_key, target_dsid, tiff_path)
-                uploaded_file_ids.append(host + ("" if host.endswith("/") else "/") + "files/" + fileid)
+            create_geotiff(tc, gps_bounds, tiff_path, None, True, self.extractor_info, terra_md_full)
             self.created += 1
             self.bytes += os.path.getsize(tiff_path)
+        # Only upload the newly generated file to Clowder if it isn't already in dataset
+        found_in_dest = check_file_in_dataset(connector, host, secret_key, target_dsid, tiff_path, remove=self.overwrite)
+        if not found_in_dest or self.overwrite:
+            fileid = upload_to_dataset(connector, host, secret_key, target_dsid, tiff_path)
+            uploaded_file_ids.append(host + ("" if host.endswith("/") else "/") + "files/" + fileid)
 
         # Trigger additional extractors
         self.log_info(resource, "triggering downstream extractors")

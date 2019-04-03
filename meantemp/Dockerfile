@@ -1,12 +1,11 @@
-FROM terraref/terrautils:1.3
+FROM terraref/terrautils:1.4
 MAINTAINER Max Burnette <mburnet2@illinois.edu>
 
 # TODO: Dockerhub automated builds from tags
 
 # Create user with necessary user ID for writing permissions on Roger
 RUN useradd -u 49044 extractor \
-    && mkdir -p /home/extractor/sites/ua-mac/raw_data \
-    && mkdir -p /home/extractor/sites/ua-mac/Level_1/ir_meanTemp \
+    && mkdir /home/extractor \
     && chown -R extractor /home/extractor
 
 # command to run when starting docker

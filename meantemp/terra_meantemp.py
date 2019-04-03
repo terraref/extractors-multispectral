@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
+import os
 import numpy
 import json
-import re
 import yaml
 
 from pyclowder.utils import CheckMessage
-from pyclowder.files import submit_extraction
-from pyclowder.datasets import download_metadata, upload_metadata, get_info
+from pyclowder.files import submit_extraction, download_metadata, upload_metadata
+from pyclowder.datasets import get_info
 from terrautils.extractors import TerrarefExtractor, is_latest_file, \
     build_dataset_hierarchy, build_metadata, load_json_file, upload_to_dataset, file_exists
 from terrautils.betydb import add_arguments, submit_traits, get_site_boundaries
@@ -64,7 +64,7 @@ class FlirMeanTemp(TerrarefExtractor):
         self.bety_key = self.args.bety_key
 
     def check_message(self, connector, host, secret_key, resource, parameters):
-        if resource['name'].find('fullfield') > -1 and re.match("^.*\d+_ir_.*.tif", resource['name']):
+        if resource['name'].startswith('ir_fullfield') and resource['name'].endswith(".tif"):
             # Check metadata to verify we have what we need
             md = download_metadata(connector, host, secret_key, resource['id'])
             if get_extractor_metadata(md, self.extractor_info['name']) and not self.overwrite:
@@ -82,10 +82,11 @@ class FlirMeanTemp(TerrarefExtractor):
         ds_info = get_info(connector, host, secret_key, resource['parent']['id'])
         timestamp = ds_info['name'].split(" - ")[1]
         time_fmt = timestamp+"T12:00:00-07:00"
-        out_csv = self.sensors.create_sensor_path(timestamp, sensor="ir_meantemp", opts=["bety"])
-        out_geo = out_csv.replace("_bety", "_geo")
-
-        # TODO: What should happen if CSV already exists? If we're here, there's no completed metadata...
+        rootdir = self.sensors.create_sensor_path(timestamp, sensor="ir_meantemp", ext=".csv")
+        out_csv = os.path.join(os.path.dirname(rootdir),
+                               resource['name'].replace(".tif", "_meantemp_bety.csv"))
+        out_geo = os.path.join(os.path.dirname(rootdir),
+                               resource['name'].replace(".tif", "_meantemp_geo.csv"))
 
         self.log_info(resource, "Writing BETY CSV to %s" % out_csv)
         csv_file = open(out_csv, 'w')
@@ -109,7 +110,8 @@ class FlirMeanTemp(TerrarefExtractor):
             centroid_lonlat = json.loads(centroid_from_geojson(bounds))["coordinates"]
 
             # Use GeoJSON string to clip full field to this plot
-            pxarray = clip_raster(resource['local_paths'][0], tuples)
+            pxarray = clip_raster(resource['local_paths'][0], tuples, "/home/extractor/temp.tif")
+            os.remove("/home/extractor/temp.tif")
 
             # Filter out any
             pxarray[pxarray < 0] = numpy.nan
@@ -155,7 +157,7 @@ class FlirMeanTemp(TerrarefExtractor):
             "files_created": [fileid, geoid],
             "betydb_link": "https://terraref.ncsa.illinois.edu/bety/api/beta/variables?name=surface_temperature"
         }, 'dataset')
-        upload_metadata(connector, host, secret_key, resource['parent']['id'], metadata)
+        upload_metadata(connector, host, secret_key, resource['id'], metadata)
 
         # Trigger downstream extractors
         self.log_info(resource, "triggering BETY extractor on %s" % fileid)
