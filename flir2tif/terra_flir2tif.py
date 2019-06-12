@@ -65,7 +65,8 @@ class FlirBin2JpgTiff(TerrarefExtractor):
             # Have TERRA-REF metadata, but not any from this extractor
             return CheckMessage.download
         else:
-            self.log_skip(resource, "no terraref metadata found")
+            self.log_error(resource, "no terraref metadata found; sending to cleaner")
+            submit_extraction(connector, host, secret_key, resource['id'], "terra.metadata.cleaner")
             return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
