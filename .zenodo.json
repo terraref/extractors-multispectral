@@ -1,0 +1,40 @@
+{
+  "title": "TERRA-REF Stereo RGB Extractors",
+  "description": "This repository contains Clowder extractors used to process stereo RGB camera data for the TERRA-REF project.",
+  "creators": [
+    {
+      "affiliation": "University of Arizona",
+      "name": "David LeBauer"
+    },
+    {
+      "affiliation": "Donald Danforth Plant Science Center",
+      "name": "Zongyang Li"
+    },
+    {
+      "affiliation": "Saint Louis University",
+      "name": "Sidike Paheding"
+    },
+    {
+      "affiliation": "National Center for Supercomputing Applications",
+      "name": "Rob Kooper",
+      "orcid": "0000-0002-5781-7287"
+    },
+    {
+      "affiliation": "National Center for Supercomputing Applications",
+      "name": "Max Burnette"
+    },
+    {
+      "affiliation": "LemnaTec",
+      "name": "Solmaz Hajmohammadi"
+    }
+  ],
+  "upload_type": "software",
+  "license": "BSD-3-Clause",
+  "access_right": "open",
+  "keywords": [
+    "TERRA-REF",
+    "clowder",
+    "Image Processing"
+  ],
+  "notes": ""
+}
