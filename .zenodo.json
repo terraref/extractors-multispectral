@@ -1,6 +1,6 @@
 {
-  "title": "TERRA-REF Stereo RGB Extractors",
-  "description": "This repository contains Clowder extractors used to process stereo RGB camera data for the TERRA-REF project.",
+  "title": "TERRA-REF Multispectral Extractors",
+  "description": "This repository contains Clowder extractors used to process FLIR & PSII camera data for the TERRA-REF project.",
   "creators": [
     {
       "affiliation": "University of Arizona",
@@ -22,6 +22,10 @@
     {
       "affiliation": "National Center for Supercomputing Applications",
       "name": "Max Burnette"
+    },
+    {
+      "affiliation": "National Center for Supercomputing Applications",
+      "name": "Craig Willis"
     },
     {
       "affiliation": "LemnaTec",
