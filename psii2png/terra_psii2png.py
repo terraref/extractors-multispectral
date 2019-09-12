@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 from pyclowder.utils import CheckMessage
 from pyclowder.files import upload_to_dataset
-from pyclowder.datasets import download_metadata, upload_metadata
+from pyclowder.datasets import download_metadata, upload_metadata, submit_extraction
 from terrautils.extractors import TerrarefExtractor, is_latest_file, load_json_file, \
     build_metadata, build_dataset_hierarchy
 from terrautils.metadata import get_extractor_metadata, get_terraref_metadata
@@ -55,10 +55,10 @@ class PSIIBin2Png(TerrarefExtractor):
         # Calculate F-variable (F-max - F-min)
         fv = np.subtract(fmax, fmin)
         # Calculate Fv/Fm (F-variable / F-max)
-        if fmax.astype('float') == 0:
-            fvfm = 0
-        else:
+        try:
             fvfm = np.divide(fv.astype('float'), fmax.astype('float'))
+        except:
+            fvfm = 0
         # Fv/Fm will generate invalid values, such as division by zero
         # Convert invalid values to zero. Valid values will be between 0 and 1
         fvfm[np.where(np.isnan(fvfm))] = 0
@@ -126,7 +126,8 @@ class PSIIBin2Png(TerrarefExtractor):
         if get_terraref_metadata(md):
             return CheckMessage.download
         else:
-            self.log_skip(resource, "no terraref metadata found")
+            self.log_error(resource, "no terraref metadata found; sending to cleaner")
+            submit_extraction(connector, host, secret_key, resource['id'], "terra.metadata.cleaner")
             return CheckMessage.ignore
 
     def process_message(self, connector, host, secret_key, resource, parameters):
@@ -169,7 +170,6 @@ class PSIIBin2Png(TerrarefExtractor):
         self.log_info(resource, "image dimensions (w, h): (%s, %s)" % (img_width, img_height))
 
         png_frames = {}
-        # skip 0101.bin since 101 is an XML file that lists the frame times
         for ind in range(0, 101):
             format_ind = "{0:0>4}".format(ind) # e.g. 1 becomes 0001
             png_path = self.sensors.create_sensor_path(timestamp, opts=[format_ind])
