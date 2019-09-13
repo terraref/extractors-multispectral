@@ -2,10 +2,7 @@
   "title": "TERRA-REF Multispectral Extractors",
   "description": "This repository contains Clowder extractors used to process FLIR & PSII camera data for the TERRA-REF project.",
   "creators": [
-    {
-      "affiliation": "University of Arizona",
-      "name": "David LeBauer"
-    },
+
     {
       "affiliation": "Donald Danforth Plant Science Center",
       "name": "Zongyang Li"
@@ -16,20 +13,24 @@
     },
     {
       "affiliation": "National Center for Supercomputing Applications",
-      "name": "Rob Kooper",
-      "orcid": "0000-0002-5781-7287"
+      "name": "Max Burnette"
     },
     {
-      "affiliation": "National Center for Supercomputing Applications",
-      "name": "Max Burnette"
+      "affiliation": "LemnaTec",
+      "name": "Solmaz Hajmohammadi"
     },
     {
       "affiliation": "National Center for Supercomputing Applications",
       "name": "Craig Willis"
     },
     {
-      "affiliation": "LemnaTec",
-      "name": "Solmaz Hajmohammadi"
+      "affiliation": "National Center for Supercomputing Applications",
+      "name": "Rob Kooper",
+      "orcid": "0000-0002-5781-7287"
+    },
+    {
+      "affiliation": "University of Arizona",
+      "name": "David LeBauer"
     }
   ],
   "upload_type": "software",
